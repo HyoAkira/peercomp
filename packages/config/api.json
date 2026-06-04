@@ -1,0 +1,7 @@
+{
+  "baseURL": "https://peercomp.com.tr.localhost",
+  "peers": "/api/v1/peers/",
+  "signalling": "/api/v1/peerserver/",
+  "apiURL": "/api/v1/",
+  "mongo": " /api/v1/database/mongo/"
+}

@@ -1,0 +1,16 @@
+[req]
+default_bits       = 2048
+prompt             = no
+default_md         = sha256
+distinguished_name = dn
+req_extensions     = req_ext
+
+[dn]
+CN = peercomp.com.tr.localhost
+
+[req_ext]
+subjectAltName = @alt_names
+
+[alt_names]
+DNS.1 = peercomp.com.tr.localhost
+DNS.2 = *.peercomp.com.tr.localhost

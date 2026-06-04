@@ -1,0 +1,193 @@
+import { useRef, useState } from "react";
+import { useAlertMsg, useFunctions, usePeerNode, useToken } from "~/lib/store";
+import {api} from "@peercomp/config"
+type FunctionMethod = "GET" | "POST";
+
+export default function NewFuncModal({}: Readonly<{}>) {
+  const token = useToken((state) => state.token);
+  const setFunctions = useFunctions((state) => state.setFunctions);
+  const functions = useFunctions((state) => state.functions);
+  const toggle = useRef<HTMLInputElement>(null);
+  const [inputName, setName] = useState("");
+  const [inputEndpoint, setEndpoint] = useState("");
+  const setAlertMsg = useAlertMsg((state) => state.setAlertMsg);
+  const node = usePeerNode((state) => state.peerNode);
+
+  const [inputMethod, setMethod] = useState<FunctionMethod>(
+    "GET" as FunctionMethod
+  );
+
+  const [inputCode, setCode] = useState(`
+    (async ()=> {
+    const user = await fetch("https://jsonplaceholder.typicode.com/users/1").then(res=>res.json());
+    return user;
+    })
+    `);
+
+  async function handleSave(
+    event: MouseEvent<HTMLButtonElement, MouseEvent>
+  ): void {
+    event.preventDefault();
+    const url = `${api.baseURL}${api.apiURL}functions/create`;
+    const options = {
+      method: "POST",
+      headers: {
+        authorization: `Bearer ${token}`,
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({
+        name: inputName,
+        endpoint: inputEndpoint,
+        method: inputMethod,
+        code: inputCode,
+      }),
+    };
+
+    try {
+      const response = await fetch(url, options);
+      const data: {
+        error: boolean;
+        data: {
+          name: string;
+          endpoint: string;
+          method: string;
+          code: string;
+          type: string;
+        };
+        message: string;
+      } = await response.json();
+      if (!data.error) {
+        if (node) {
+          data.data.type = "function";
+          await node.store(data.data.endpoint, data.data);
+        }
+        setFunctions([...functions, data.data]);
+        toggle.current?.click();
+        setAlertMsg("Fonksiyon başarıyla oluşturuldu.");
+        setTimeout(() => {
+          setAlertMsg("");
+        }, 3000);
+      }
+    } catch (error) {
+      console.error(error);
+    }
+  }
+
+  return (
+    <>
+      <input
+        ref={toggle}
+        type="checkbox"
+        id={`new_func_modal`}
+        className="modal-toggle"
+      />
+
+      <div className="modal" role="dialog">
+        <div className="modal-box w-11/12 max-w-6xl p-0">
+          {/* HEADER */}
+          <div className="flex items-center justify-between border-b border-base-300 px-6 py-4">
+            <div>
+              <h3 className="text-lg font-bold">Yeni Fonksiyon</h3>
+            </div>
+
+            <label
+              htmlFor={`new_func_modal`}
+              className="btn btn-sm btn-circle btn-ghost"
+            >
+              ✕
+            </label>
+          </div>
+
+          {/* CONTENT */}
+          <div className="grid grid-cols-1 lg:grid-cols-[320px_1fr] min-h-[650px]">
+            {/* SIDEBAR */}
+            <div className="border-r border-base-300 bg-base-200/30 p-5 flex flex-col gap-5">
+              <div className="form-control">
+                <label className="label">
+                  <span className="label-text">Fonksiyon Adı</span>
+                </label>
+
+                <input
+                  type="text"
+                  className="input input-bordered "
+                  placeholder="getUserData"
+                  value={inputName}
+                  onChange={(e) => setName(e.target.value)}
+                />
+              </div>
+
+              <div className="form-control">
+                <label className="label">
+                  <span className="label-text">Endpoint</span>
+                </label>
+
+                <input
+                  type="text"
+                  className="input input-bordered"
+                  placeholder="/api/user"
+                  value={inputEndpoint}
+                  onChange={(e) => setEndpoint(e.target.value)}
+                />
+              </div>
+
+              <div className="form-control">
+                <label className="label">
+                  <span className="label-text">HTTP Method</span>
+                </label>
+
+                <select
+                  className="select select-bordered"
+                  value={inputMethod}
+                  onChange={(e) => setMethod(e.target.value as FunctionMethod)}
+                >
+                  <option>GET</option>
+                  <option>POST</option>
+                </select>
+              </div>
+            </div>
+
+            {/* CODE EDITOR */}
+            <div className="flex flex-col">
+              <div className="border-b border-base-300 bg-base-200/40 px-4 py-2">
+                <span className="text-sm font-medium">index.js</span>
+              </div>
+
+              <textarea
+                spellCheck={false}
+                className="
+                  flex-1
+                  w-full
+                  min-h-[580px]
+                  resize-none
+                  border-0
+                  bg-base-100
+                  p-5
+                  font-mono
+                  text-sm
+                  outline-none
+                "
+                value={inputCode}
+                onChange={(e) => setCode(e.target.value)}
+              />
+            </div>
+          </div>
+
+          {/* FOOTER */}
+          <div className="modal-action border-t border-base-300 px-6 py-4 mt-0">
+            <label htmlFor={`new_func_modal`} className="btn btn-ghost">
+              İptal
+            </label>
+
+            <button onClick={handleSave} className="btn btn-primary">
+              Kaydet
+            </button>
+          </div>
+        </div>
+
+        {/* <label className="modal-backdrop" htmlFor={`new_func_modal`}>
+          Close
+        </label> */}
+      </div>
+    </>
+  );
+}

@@ -1,0 +1,30 @@
+{
+  "name": "node-worker-gateway",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "",
+  "main": "main.ts",
+  "scripts": {
+    "dev": "NODE_OPTIONS='--use-system-ca' tsx --watch main.ts "
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "dotenv": "^17.4.2",
+    "express": "^5.2.1",
+    "mongoose": "^9.6.2",
+    "node-datachannel": "^0.32.3",
+    "peerjs": "^1.5.5",
+    "quickjs-emscripten": "^0.32.0",
+    "ses": "^2.1.0",
+    "uuid": "^14.0.0",
+    "ws": "^8.20.1"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.6",
+    "@types/node": "^25.9.1",
+    "@types/ws": "^8.18.1",
+    "tsx": "^4.22.2"
+  }
+}

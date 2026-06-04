@@ -1,0 +1,17 @@
+{
+  "name": "bitirme2",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "dev": "turbo dev"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "packageManager": "pnpm@10.33.2",
+  "dependencies": {
+    "daisyui": "^5.5.19",
+    "turbo": "^2.9.6"
+  }
+}

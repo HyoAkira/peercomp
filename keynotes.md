@@ -1,0 +1,7 @@
+- Storage Bucket
+- IndexedDB
+- Local Caches
+- JS v8 engine
+- WebRTC
+- p2p
+- CSR ve SSR 
