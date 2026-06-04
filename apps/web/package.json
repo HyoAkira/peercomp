@@ -9,8 +9,10 @@
     "typecheck": "react-router typegen && tsc"
   },
   "dependencies": {
+    "@peercomp/config": "workspace:*",
     "@react-router/node": "7.14.0",
     "@react-router/serve": "7.14.0",
+    "@uiw/react-textarea-code-editor": "^3.1.1",
     "daisyui": "^5.5.19",
     "dexie": "^4.4.2",
     "dexie-react-hooks": "^4.4.0",
@@ -21,8 +23,7 @@
     "react-dom": "^19.2.4",
     "react-router": "7.14.0",
     "ses": "^2.1.0",
-    "zustand": "^5.0.12",
-    "@peercomp/config": "workspace:*"
+    "zustand": "^5.0.12"
   },
   "devDependencies": {
     "@react-router/dev": "7.14.0",

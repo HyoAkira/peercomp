@@ -1,6 +1,8 @@
 import { useRef, useState } from "react";
 import { useAlertMsg, useFunctions, usePeerNode, useToken } from "~/lib/store";
-import {api} from "@peercomp/config"
+import { api } from "@peercomp/config";
+import CodeEditor from "@uiw/react-textarea-code-editor"; // <-- Paket eklendi
+
 type FunctionMethod = "GET" | "POST";
 
 export default function NewFuncModal({}: Readonly<{}>) {
@@ -17,16 +19,14 @@ export default function NewFuncModal({}: Readonly<{}>) {
     "GET" as FunctionMethod
   );
 
-  const [inputCode, setCode] = useState(`
-    (async ()=> {
-    const user = await fetch("https://jsonplaceholder.typicode.com/users/1").then(res=>res.json());
-    return user;
-    })
-    `);
+  const [inputCode, setCode] = useState(`(async ()=> {
+  const user = await fetch("https://jsonplaceholder.typicode.com/users/1").then(res=>res.json());
+  return user;
+})`);
 
   async function handleSave(
-    event: MouseEvent<HTMLButtonElement, MouseEvent>
-  ): void {
+    event: React.MouseEvent<HTMLButtonElement, MouseEvent>
+  ): Promise<void> {
     event.preventDefault();
     const url = `${api.baseURL}${api.apiURL}functions/create`;
     const options = {
@@ -83,7 +83,7 @@ export default function NewFuncModal({}: Readonly<{}>) {
       />
 
       <div className="modal" role="dialog">
-        <div className="modal-box w-11/12 max-w-6xl p-0">
+        <div className="modal-box w-11/12 max-w-6xl p-0 overflow-hidden">
           {/* HEADER */}
           <div className="flex items-center justify-between border-b border-base-300 px-6 py-4">
             <div>
@@ -99,17 +99,16 @@ export default function NewFuncModal({}: Readonly<{}>) {
           </div>
 
           {/* CONTENT */}
-          <div className="grid grid-cols-1 lg:grid-cols-[320px_1fr] min-h-[650px]">
+          <div className="grid grid-cols-1 lg:grid-cols-[320px_1fr] min-h-[550px]">
             {/* SIDEBAR */}
             <div className="border-r border-base-300 bg-base-200/30 p-5 flex flex-col gap-5">
               <div className="form-control">
                 <label className="label">
                   <span className="label-text">Fonksiyon Adı</span>
                 </label>
-
                 <input
                   type="text"
-                  className="input input-bordered "
+                  className="input input-bordered"
                   placeholder="getUserData"
                   value={inputName}
                   onChange={(e) => setName(e.target.value)}
@@ -120,7 +119,6 @@ export default function NewFuncModal({}: Readonly<{}>) {
                 <label className="label">
                   <span className="label-text">Endpoint</span>
                 </label>
-
                 <input
                   type="text"
                   className="input input-bordered"
@@ -134,7 +132,6 @@ export default function NewFuncModal({}: Readonly<{}>) {
                 <label className="label">
                   <span className="label-text">HTTP Method</span>
                 </label>
-
                 <select
                   className="select select-bordered"
                   value={inputMethod}
@@ -147,46 +144,41 @@ export default function NewFuncModal({}: Readonly<{}>) {
             </div>
 
             {/* CODE EDITOR */}
-            <div className="flex flex-col">
-              <div className="border-b border-base-300 bg-base-200/40 px-4 py-2">
-                <span className="text-sm font-medium">index.js</span>
+            <div className="flex flex-col bg-base-100">
+              <div className="border-b border-base-300 bg-base-200/40 px-4 py-2 flex items-center justify-between">
+                <span className="text-sm font-medium text-base-content/70">index.js</span>
+                <span className="badge badge-sm badge-neutral">javascript</span>
               </div>
 
-              <textarea
-                spellCheck={false}
-                className="
-                  flex-1
-                  w-full
-                  min-h-[580px]
-                  resize-none
-                  border-0
-                  bg-base-100
-                  p-5
-                  font-mono
-                  text-sm
-                  outline-none
-                "
-                value={inputCode}
-                onChange={(e) => setCode(e.target.value)}
-              />
+              <div className="flex-1 min-h-[480px] max-h-[600px] overflow-auto custom-scrollbar">
+                <CodeEditor
+                  value={inputCode}
+                  language="js"
+                  placeholder="Lütfen JavaScript kodunuzu buraya yazın..."
+                  onChange={(evn) => setCode(evn.target.value)}
+                  padding={20}
+                  style={{
+                    fontSize: 14,
+                    fontFamily: 'ui-monospace, SFMono-Regular, SF Mono, Menlo, Consolas, Liberation Mono, monospace',
+                    // backgroundColor: "base-300", /* daisyUI temasına uyması için */
+                    minHeight: "100%"
+                  }}
+                  data-color-mode="dark" // Eğer siten koyu temalıysa 'dark', açıksa 'light' yapabilirsin. 
+                />
+              </div>
             </div>
           </div>
 
           {/* FOOTER */}
-          <div className="modal-action border-t border-base-300 px-6 py-4 mt-0">
+          <div className="modal-action border-t border-base-300 px-6 py-4 mt-0 bg-base-200/20">
             <label htmlFor={`new_func_modal`} className="btn btn-ghost">
               İptal
             </label>
-
             <button onClick={handleSave} className="btn btn-primary">
               Kaydet
             </button>
           </div>
         </div>
-
-        {/* <label className="modal-backdrop" htmlFor={`new_func_modal`}>
-          Close
-        </label> */}
       </div>
     </>
   );
