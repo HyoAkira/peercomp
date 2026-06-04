@@ -24,7 +24,7 @@ export default class KVService {
     encrypted?: Schema.Types.Buffer;
     iv?: Schema.Types.Buffer;
   }) {
-    const check = await checkNameExist(key, userId);
+    const check = await checkExist(key, userId);
     if (check?.error) {
       return check;
     }
@@ -63,7 +63,7 @@ export default class KVService {
         data: null,
       };
     }
-  
+
     if (kv.author.toString() !== userId) {
       return {
         code: 403,
@@ -99,11 +99,6 @@ export default class KVService {
       iv?: Types.Buffer;
     }
   ) {
-
-    const check = await checkNameExist(key, userId);
-    if (check?.error) {
-      return check;
-    }
     const kv = await KVModel.findById(kvId);
     if (!kv) {
       return {
@@ -112,6 +107,10 @@ export default class KVService {
         error: true,
         data: null,
       };
+    }
+    const check = await checkExist(key, userId, kvId);
+    if (check?.error) {
+      return check;
     }
     if (kv.author.toString() !== userId) {
       return {
@@ -137,9 +136,10 @@ export default class KVService {
   }
 }
 
-async function checkNameExist(key: string, userId: Types.ObjectId) {
-  const check = await KVModel.findOne({ key, author: userId });
-  if (check) {
+async function checkExist(key?: string, author?: string, excludeId?: string) {
+  if (!key || !author) return;
+  const check = await KVModel.findOne({ key, author });
+  if (check && check._id.toString() !== excludeId) {
     return {
       code: 400,
       message: "You already have a KV with this key",

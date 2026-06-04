@@ -117,6 +117,7 @@ class NodeMap extends Map {
         }
         case "kv": {
           // For generic KV pairs, also persist with a generic type
+          console.log("Storing KV pair in Dexie:", key, value);
           await KvDatabase.contents.put({
             id: hashedKey,
             data: value,

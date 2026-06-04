@@ -2,7 +2,7 @@ import { api } from "@peercomp/config";
 import { useRef, useState } from "react";
 import { useAlertMsg, useFunctions, usePeerNode, useToken } from "~/lib/store";
 import CodeEditor from "@uiw/react-textarea-code-editor"; // <-- Paket eklendi
-
+import {minify} from "terser"
 type FunctionMethod = "GET" | "POST";
 
 export default function EditModalComponent({
@@ -45,6 +45,34 @@ export default function EditModalComponent({
     };
 
     try {
+      let finalCode = inputCode;
+
+      // 1. Sadece JS kodunun olduğu metni Terser ile minify ediyoruz
+      // Terser client-side'da nesne döndürdüğü için .code alanını almalıyız
+      const minifiedResult = await minify(inputCode, {
+        mangle: false, 
+        parse: {
+          bare_returns: true, // Return ifadelerinin etrafına süslü parantez eklemeden bırakır
+        },
+        compress: {
+          dead_code: true, 
+          drop_debugger: true, 
+          module: true
+        },
+        format: {
+          comments: false // Yorum satırlarını da silsin
+        }
+      });
+
+      if (minifiedResult && minifiedResult.code) {
+        finalCode = minifiedResult.code;
+      }
+      const userInput = {
+        name: inputName,
+        endpoint: inputEndpoint,
+        method: inputMethod,
+        code: finalCode, // Sıkıştırılmış kod buraya gidiyor
+      };
       const response = await fetch(
         `${api.baseURL}${api.apiURL}functions/${functionId}`,
         {

@@ -1,8 +1,8 @@
-import { useRef, useState } from "react";
-import { useAlertMsg, useFunctions, usePeerNode, useToken } from "~/lib/store";
 import { api } from "@peercomp/config";
 import CodeEditor from "@uiw/react-textarea-code-editor"; // <-- Paket eklendi
-
+import { useRef, useState } from "react";
+import { minify } from "terser";
+import { useAlertMsg, useFunctions, usePeerNode, useToken } from "~/lib/store";
 type FunctionMethod = "GET" | "POST";
 
 export default function NewFuncModal({}: Readonly<{}>) {
@@ -28,7 +28,27 @@ export default function NewFuncModal({}: Readonly<{}>) {
     event: React.MouseEvent<HTMLButtonElement, MouseEvent>
   ): Promise<void> {
     event.preventDefault();
+
     const url = `${api.baseURL}${api.apiURL}functions/create`;
+    let finalCode = inputCode;
+    const minifiedResult = await minify(inputCode, {
+      mangle: false,
+      parse: {
+        bare_returns: true, // Return ifadelerinin etrafına süslü parantez eklemeden bırakır
+      },
+      compress: {
+        dead_code: true,
+        drop_debugger: true,
+        module: true,
+      },
+      format: {
+        comments: false, // Yorum satırlarını da silsin
+      },
+    });
+
+    if (minifiedResult && minifiedResult.code) {
+      finalCode = minifiedResult.code;
+    }
     const options = {
       method: "POST",
       headers: {
@@ -39,7 +59,7 @@ export default function NewFuncModal({}: Readonly<{}>) {
         name: inputName,
         endpoint: inputEndpoint,
         method: inputMethod,
-        code: inputCode,
+        code: finalCode,
       }),
     };
 
@@ -146,7 +166,9 @@ export default function NewFuncModal({}: Readonly<{}>) {
             {/* CODE EDITOR */}
             <div className="flex flex-col bg-base-100">
               <div className="border-b border-base-300 bg-base-200/40 px-4 py-2 flex items-center justify-between">
-                <span className="text-sm font-medium text-base-content/70">index.js</span>
+                <span className="text-sm font-medium text-base-content/70">
+                  index.js
+                </span>
                 <span className="badge badge-sm badge-neutral">javascript</span>
               </div>
 
@@ -159,11 +181,12 @@ export default function NewFuncModal({}: Readonly<{}>) {
                   padding={20}
                   style={{
                     fontSize: 14,
-                    fontFamily: 'ui-monospace, SFMono-Regular, SF Mono, Menlo, Consolas, Liberation Mono, monospace',
+                    fontFamily:
+                      "ui-monospace, SFMono-Regular, SF Mono, Menlo, Consolas, Liberation Mono, monospace",
                     // backgroundColor: "base-300", /* daisyUI temasına uyması için */
-                    minHeight: "100%"
+                    minHeight: "100%",
                   }}
-                  data-color-mode="dark" // Eğer siten koyu temalıysa 'dark', açıksa 'light' yapabilirsin. 
+                  data-color-mode="dark" // Eğer siten koyu temalıysa 'dark', açıksa 'light' yapabilirsin.
                 />
               </div>
             </div>

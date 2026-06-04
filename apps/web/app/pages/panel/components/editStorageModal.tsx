@@ -1,6 +1,9 @@
 import { api } from "@peercomp/config";
 import { useRef } from "react";
 import { useAlertMsg, useKv, useToken } from "~/lib/store";
+function JSONSanitizeCode(code) {
+  return JSON.stringify(JSON.parse(code));
+}
 
 export default function EditStorageModalComponent({
   kvId,
@@ -27,13 +30,14 @@ export default function EditStorageModalComponent({
   const token = useToken((state) => state.token);
   const toggle = useRef<HTMLInputElement>(null);
   const setAlertMsg = useAlertMsg((state) => state.setAlertMsg);
+
   async function handleSave(
     event: MouseEvent<HTMLButtonElement, MouseEvent>
   ): Promise<void> {
     event.preventDefault();
     const userInput = {
       key: keyInputRef.current?.value,
-      value: valueInputRef.current?.value,
+      value: JSONSanitizeCode(valueInputRef.current?.value),
       isEncrypted: encryptToggleRef.current?.checked,
     };
     try {

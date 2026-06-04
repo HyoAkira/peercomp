@@ -1,6 +1,6 @@
-import { useRef } from "react";
-import { useKv, useToken } from "~/lib/store";
 import { api } from "@peercomp/config";
+import { useRef } from "react";
+import { useKv, usePeerNode, useToken } from "~/lib/store";
 export default function NewStorageModal() {
   const token = useToken((state) => state.token);
   const variableKey = useRef<HTMLInputElement>(null);
@@ -9,6 +9,11 @@ export default function NewStorageModal() {
   const kv = useKv((state) => state.kv);
   const setKv = useKv((state) => state.setKv);
   const toggle = useRef<HTMLInputElement>(null);
+  const node = usePeerNode((state) => state.peerNode);
+  function JSONSanitizeCode(code) {
+   return JSON.stringify(JSON.parse(code));
+  }
+
   async function handleSave(
     event: MouseEvent<HTMLButtonElement, MouseEvent>
   ): void {
@@ -28,13 +33,17 @@ export default function NewStorageModal() {
         },
         body: JSON.stringify({
           key,
-          value: val,
+          value: JSONSanitizeCode(val),
           isEncrypted: check,
         }),
       });
 
       const data = await response.json();
       if (data.error) throw new Error(data.error);
+      data.data.type = "kv";
+      if (node) {
+        await node.store(key, data.data);
+      }
       setKv([...kv, data.data]);
       toggle.current?.click();
     } catch (error) {
