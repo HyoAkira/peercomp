@@ -1,16 +1,14 @@
 /**
- * crypto.ts — Signed Diffie-Hellman Key Exchange
+ * crypto.ts — Complete P2P Identity, Session & Namespace Auth Module
  *
  * Mimari:
- *   IdentityKey  → kalıcı ECDSA kimlik çifti (imzalama / doğrulama)
- *   SessionKey   → tek seferlik ECDH oturum çifti (shared key türetme)
- *   CryptoSession → tam bir DH el sıkışmasını + AES-GCM şifrelemeyi yönetir
- *
- * Kullanım örneği dosyanın en altında yer almaktadır.
+ * IdentityKey  → kalıcı ECDSA kimlik çifti (imzala/doğrula) & Namespace üretimi
+ * CryptoSession → tek seferlik ECDH oturum çifti (uçtan uca şifreleme)
+ * validateP2PWriteRequest → P2P ağında Token/Namespace tabanlı yetki doğrulama
  */
 
 // ─────────────────────────────────────────────
-// Yardımcı dönüşüm fonksiyonları
+// 1. Yardımcı Dönüşüm Fonksiyonları
 // ─────────────────────────────────────────────
 
 function bufferToBase64(buf: ArrayBuffer): string {
@@ -24,8 +22,20 @@ function base64ToBuffer(b64: string): ArrayBuffer {
   return buf.buffer;
 }
 
+/**
+ * Glob Pattern Eşleştirme (örn: "posts/*" -> "posts/123" ile eşleşir)
+ */
+function doesKeyMatchPattern(key: string, patterns: string[]): boolean {
+  return patterns.some(pattern => {
+    const escapeRegex = (s: string) => s.replace(/([.+?^${}()|\[\]\/\\])/g, "\\$1");
+    const regexPattern = "^" + pattern.split("*").map(escapeRegex).join(".*") + "$";
+    const regex = new RegExp(regexPattern);
+    return regex.test(key);
+  });
+}
+
 // ─────────────────────────────────────────────
-// Tipler
+// 2. Arayüzler (Interfaces & Types)
 // ─────────────────────────────────────────────
 
 /** export() çıktısı — JSON-serializable, localStorage / IndexedDB'e yazılabilir */
@@ -34,7 +44,7 @@ export interface SerializedIdentityKey {
   privateKey: string; // base64 PKCS8
 }
 
-/** Karşı tarafa iletilecek oturum paketi */
+/** Karşı tarafa iletilecek DH oturum paketi */
 export interface SessionHandshakePacket {
   ecdhPublicKeyRaw: string;  // base64 raw ECDH public key
   signature: string;         // base64 — kimlik private key ile imzalanmış
@@ -47,8 +57,28 @@ export interface EncryptedPacket {
   iv: string;         // base64
 }
 
+/** P2P Yetki Devri Token'ı */
+export interface DelegationToken {
+  delegatePublicKey: string; // Kime izin verildi (base64 SPKI)
+  allowedKeys: string[];     // Hangi key pattern'larına (örn: ["posts/*", "profile"])
+  expiresAt: number;         // Unix ms
+  ownerSignature: string;    // base64, owner'ın token'ı imzaladığı kanıt
+}
+
+/** P2P Ağına Gönderilen İmzalı KV Paketi */
+export interface SignedValue {
+  payload: string;           // Asıl veri (JSON string, tercihen timestamp içerir)
+  
+  // --- Owner doğrudan yazdıysa ---
+  ownerSignature?: string;   // base64
+
+  // --- Delegate yazdıysa ---
+  token?: DelegationToken;   
+  delegateSignature?: string; // base64
+}
+
 // ─────────────────────────────────────────────
-// IdentityKey — kalıcı ECDSA kimlik çifti
+// 3. IdentityKey — Kalıcı ECDSA Kimlik Çifti
 // ─────────────────────────────────────────────
 
 export class IdentityKey {
@@ -68,8 +98,7 @@ export class IdentityKey {
   }
 
   /**
-   * Mevcut bir çifti içe aktar.
-   * Kaynak: localStorage, IndexedDB, Dexie, vb.
+   * Mevcut bir çifti içe aktar (localStorage, Dexie vb. kaynaklardan)
    */
   static async import(serialized: SerializedIdentityKey): Promise<IdentityKey> {
     const [publicKey, privateKey] = await Promise.all([
@@ -143,15 +172,48 @@ export class IdentityKey {
       ["verify"]
     );
   }
+
+  /**
+   * SPKI Base64 formatındaki bir public key'den SHA-256 Namespace ID üretir.
+   */
+  static async calculateNamespace(spkiBase64: string): Promise<string> {
+    const keyBuffer = base64ToBuffer(spkiBase64);
+    const hashBuffer = await crypto.subtle.digest("SHA-256", keyBuffer);
+    return Array.from(new Uint8Array(hashBuffer))
+      .map(b => b.toString(16).padStart(2, "0"))
+      .join("");
+  }
+
+  /**
+   * Elimizde IdentityKey objesi yokken, dışarıdan gelen bir verinin imzasını
+   * doğrudan Base64 SPKI string kullanarak doğrulamak için yardımcı statik metod.
+   */
+  static async verifyWithSPKI(
+    spkiBase64: string,
+    signatureBase64: string,
+    data: string
+  ): Promise<boolean> {
+    try {
+      const publicKey = await this.importPublicKey(spkiBase64);
+      const signatureBuffer = base64ToBuffer(signatureBase64);
+      return await crypto.subtle.verify(
+        { name: "ECDSA", hash: "SHA-256" },
+        publicKey,
+        signatureBuffer,
+        new TextEncoder().encode(data)
+      );
+    } catch (error) {
+      return false;
+    }
+  }
 }
 
 // ─────────────────────────────────────────────
-// CryptoSession — tam DH oturumu
+// 4. CryptoSession — Tam Uçtan Uca DH Oturumu
 // ─────────────────────────────────────────────
 
 export class CryptoSession {
   private sharedKey: CryptoKey | null = null;
-
   private ecdhPublicKey: CryptoKey | null = null;
   private ecdhPrivateKey: CryptoKey | null = null;
 
@@ -161,12 +223,6 @@ export class CryptoSession {
     return new CryptoSession(identity);
   }
 
-  // ── El Sıkışma: Başlatan taraf ──────────────
-
-  /**
-   * 1. Adım (Initiator): ECDH çifti üret, ECDH public key'i kimlik key'i ile
-   * imzala, karşı tarafa gönderilecek paketi döndür.
-   */
   async createHandshakePacket(): Promise<SessionHandshakePacket> {
     const ecdhPair = await crypto.subtle.generateKey(
       { name: "ECDH", namedCurve: "P-256" },
@@ -190,17 +246,9 @@ export class CryptoSession {
     };
   }
 
-  /**
-   * 2. Adım (Responder): Gelen paketi doğrula, kendi ECDH çiftini üret,
-   * shared key'i türet ve cevap paketini döndür.
-   */
-  async acceptHandshake(
-    incomingPacket: SessionHandshakePacket
-  ): Promise<SessionHandshakePacket> {
-    // Gelen ECDH public key'i imzayla doğrula
+  async acceptHandshake(incomingPacket: SessionHandshakePacket): Promise<SessionHandshakePacket> {
     const remoteEcdhKey = await this._verifyAndImport(incomingPacket);
 
-    // Kendi ECDH çiftini üret
     const ecdhPair = await crypto.subtle.generateKey(
       { name: "ECDH", namedCurve: "P-256" },
       true,
@@ -209,7 +257,6 @@ export class CryptoSession {
     this.ecdhPublicKey = ecdhPair.publicKey;
     this.ecdhPrivateKey = ecdhPair.privateKey;
 
-    // Shared key türet
     this.sharedKey = await crypto.subtle.deriveKey(
       { name: "ECDH", public: remoteEcdhKey },
       this.ecdhPrivateKey,
@@ -218,7 +265,6 @@ export class CryptoSession {
       ["encrypt", "decrypt"]
     );
 
-    // Cevap paketini oluştur
     const rawEcdh = await crypto.subtle.exportKey("raw", this.ecdhPublicKey);
     const signature = await crypto.subtle.sign(
       { name: "ECDSA", hash: "SHA-256" },
@@ -233,17 +279,11 @@ export class CryptoSession {
     };
   }
 
-  /**
-   * 3. Adım (Initiator): Responder'ın cevap paketini doğrula,
-   * shared key'i türet. Bundan sonra şifreleme / deşifreleme kullanılabilir.
-   */
   async finalizeHandshake(responsePacket: SessionHandshakePacket): Promise<void> {
     if (!this.ecdhPrivateKey) {
       throw new Error("createHandshakePacket() önce çağrılmalıdır.");
     }
-
     const remoteEcdhKey = await this._verifyAndImport(responsePacket);
-
     this.sharedKey = await crypto.subtle.deriveKey(
       { name: "ECDH", public: remoteEcdhKey },
       this.ecdhPrivateKey,
@@ -253,14 +293,10 @@ export class CryptoSession {
     );
   }
 
-  // ── Şifreleme / Deşifreleme ──────────────────
-
-  /** AES-GCM ile string veya binary veri şifrele */
   async encrypt(data: string | ArrayBuffer): Promise<EncryptedPacket> {
     this._assertReady();
     const iv = crypto.getRandomValues(new Uint8Array(12));
-    const payload =
-      typeof data === "string" ? new TextEncoder().encode(data) : new Uint8Array(data);
+    const payload = typeof data === "string" ? new TextEncoder().encode(data) : new Uint8Array(data);
 
     const ciphertext = await crypto.subtle.encrypt(
       { name: "AES-GCM", iv },
@@ -274,18 +310,14 @@ export class CryptoSession {
     };
   }
 
-  /** Şifreli paketi deşifrele — string döndürür */
   async decryptText(packet: EncryptedPacket): Promise<string> {
     const buf = await this._decrypt(packet);
     return new TextDecoder().decode(buf);
   }
 
-  /** Şifreli paketi deşifrele — ham ArrayBuffer döndürür (binary / image için) */
   async decryptBinary(packet: EncryptedPacket): Promise<ArrayBuffer> {
     return this._decrypt(packet);
   }
-
-  // ── Özel yardımcılar ────────────────────────
 
   private async _decrypt(packet: EncryptedPacket): Promise<ArrayBuffer> {
     this._assertReady();
@@ -297,22 +329,11 @@ export class CryptoSession {
   }
 
   private _assertReady(): void {
-    if (!this.sharedKey) {
-      throw new Error(
-        "Shared key henüz türetilmedi. El sıkışmayı tamamlayın."
-      );
-    }
+    if (!this.sharedKey) throw new Error("Shared key henüz türetilmedi. El sıkışmayı tamamlayın.");
   }
 
-  /**
-   * Gelen paketin imzasını doğrular ve ECDH public key'i import eder.
-   * MITM koruması burada sağlanır.
-   */
   private async _verifyAndImport(packet: SessionHandshakePacket): Promise<CryptoKey> {
-    const remoteIdentityKey = await IdentityKey.importPublicKey(
-      packet.identityPublicKeySPKI
-    );
-
+    const remoteIdentityKey = await IdentityKey.importPublicKey(packet.identityPublicKeySPKI);
     const rawEcdh = base64ToBuffer(packet.ecdhPublicKeyRaw);
     const signature = base64ToBuffer(packet.signature);
 
@@ -325,173 +346,101 @@ export class CryptoSession {
 
     if (!valid) throw new Error("MITM tespit edildi: imza geçersiz.");
 
-    return crypto.subtle.importKey(
-      "raw",
-      rawEcdh,
-      { name: "ECDH", namedCurve: "P-256" },
-      true,
-      []
-    );
+    return crypto.subtle.importKey("raw", rawEcdh, { name: "ECDH", namedCurve: "P-256" }, true, []);
   }
 }
 
 // ─────────────────────────────────────────────
-// Kullanım Örneği
+// 5. P2P Ağı Yetki Doğrulama Mantığı
 // ─────────────────────────────────────────────
-//
-// ── Alice tarafı ────────────────────────────
-//
-//   const aliceIdentity = await IdentityKey.generate();
-//
-//   // Kimliği kalıcı depola (Dexie / localStorage)
-//   const serialized = await aliceIdentity.export();
-//   localStorage.setItem("identity", JSON.stringify(serialized));
-//
-//   // Oturum oluştur ve handshake paketi hazırla
-//   const aliceSession = CryptoSession.create(aliceIdentity);
-//   const alicePacket = await aliceSession.createHandshakePacket();
-//   // → alicePacket'i Bob'a ilet (WebRTC data channel, DHT, vb.)
-//
-// ── Bob tarafı ──────────────────────────────
-//
-//   const bobIdentity = await IdentityKey.generate();
-//   const bobSession = CryptoSession.create(bobIdentity);
-//
-//   // Alice'in paketini kabul et, cevap paketini üret
-//   const bobPacket = await bobSession.acceptHandshake(alicePacket);
-//   // → bobPacket'i Alice'e ilet
-//
-// ── Alice — handshake'i tamamla ─────────────
-//
-//   await aliceSession.finalizeHandshake(bobPacket);
-//
-// ── Artık şifreli iletişim mümkün ───────────
-//
-//   const encrypted = await aliceSession.encrypt("Merhaba Bob!");
-//   const text = await bobSession.decryptText(encrypted);
-//   console.log(text); // "Merhaba Bob!"
-//
-// ── Kimliği sonradan tekrar yükle ───────────
-//
-//   const saved = JSON.parse(localStorage.getItem("identity")!);
-//   const aliceIdentityLoaded = await IdentityKey.import(saved);
 
-// // ---------- ECDH ----------
-// export async function generateKeyPair() {
-//   return crypto.subtle.generateKey(
-//     { name: "ECDH", namedCurve: "P-256" },
-//     true,
-//     ["deriveKey"]
-//   );
-// }
+/**
+ * Kademlia DHT veya P2P ağına gelen bir PUT isteğini doğrular.
+ * Tamamen IdentityKey'in statik metodlarına dayanır.
+ * * @param targetNamespace İsteğin yazılmak istendiği alan
+ * @param key İsteğin atıldığı spesifik anahtar (Örn: "posts/12")
+ * @param signedValue İmzalı veri paketi
+ * @param ownerPublicKeyBase64 Namespace sahibinin açık anahtarı
+ */
+export async function validateP2PWriteRequest(
+  targetNamespace: string,
+  key: string,
+  signedValue: SignedValue,
+  ownerPublicKeyBase64: string
+): Promise<boolean> {
+  
+  // 1. ADIM: Namespace Eşleşmesi
+  const expectedNamespace = await IdentityKey.calculateNamespace(ownerPublicKeyBase64);
+  if (expectedNamespace !== targetNamespace) {
+    console.warn("REJECTED: Namespace mismatch.");
+    return false; 
+  }
 
-// export async function generateSharedKey(otherPublicKey, privateKey) {
-//   return crypto.subtle.deriveKey(
-//     { name: "ECDH", public: otherPublicKey },
-//     privateKey,
-//     { name: "AES-GCM", length: 256 },
-//     false,
-//     ["encrypt", "decrypt"]
-//   );
-// }
+  // 2. ADIM: Owner doğrudan yazıyorsa
+  if (signedValue.ownerSignature) {
+    const isValidOwner = await IdentityKey.verifyWithSPKI(
+      ownerPublicKeyBase64,
+      signedValue.ownerSignature,
+      signedValue.payload
+    );
+    
+    if (isValidOwner) return true;
+    console.warn("REJECTED: Invalid Owner Signature.");
+    return false;
+  }
 
-// // ---------- ECDSA (identity) ----------
-// export async function generateIdentityKey() {
-//   return crypto.subtle.generateKey(
-//     { name: "ECDSA", namedCurve: "P-256" },
-//     true,
-//     ["sign", "verify"]
-//   );
-// }
+  // 3. ADIM: Token kontrolü
+  if (!signedValue.token || !signedValue.delegateSignature) {
+    console.warn("REJECTED: Missing Owner Signature and Delegation Token.");
+    return false;
+  }
 
-// // ECDH public key’i imzala
-// export async function signPublicKey(publicKey, identityPrivateKey) {
-//   const raw = await crypto.subtle.exportKey("raw", publicKey);
+  const { token, delegateSignature } = signedValue;
 
-//   const signature = await crypto.subtle.sign(
-//     { name: "ECDSA", hash: "SHA-256" },
-//     identityPrivateKey,
-//     raw
-//   );
+  // 4. ADIM: Delegate Yetki Kontrolleri
+  
+  // 4.1. Token gerçekten owner tarafından mı imzalanmış?
+  const tokenDataToVerify = JSON.stringify({
+    delegatePublicKey: token.delegatePublicKey,
+    allowedKeys: token.allowedKeys,
+    expiresAt: token.expiresAt
+  });
+  
+  const isTokenAuthentic = await IdentityKey.verifyWithSPKI(
+    ownerPublicKeyBase64,
+    token.ownerSignature,
+    tokenDataToVerify
+  );
+  
+  if (!isTokenAuthentic) {
+    console.warn("REJECTED: Token is not signed by Owner.");
+    return false;
+  }
 
-//   return { raw, signature };
-// }
+  // 4.2. Süre kontrolü
+  if (Date.now() > token.expiresAt) {
+    console.warn("REJECTED: Delegation Token expired.");
+    return false;
+  }
 
-// // doğrula + usable public key'e çevir
-// export async function verifyAndImportPublicKey(
-//   raw,
-//   signature,
-//   identityPublicKey
-// ) {
-//   const ok = await crypto.subtle.verify(
-//     { name: "ECDSA", hash: "SHA-256" },
-//     identityPublicKey,
-//     signature,
-//     raw
-//   );
+  // 4.3. Key pattern izni
+  if (!doesKeyMatchPattern(key, token.allowedKeys)) {
+    console.warn(`REJECTED: Key '${key}' is not allowed by token patterns.`);
+    return false;
+  }
 
-//   if (!ok) throw new Error("MITM detected: signature invalid");
+  // 4.4. Payload delegate tarafından mı imzalanmış?
+  const isPayloadAuthentic = await IdentityKey.verifyWithSPKI(
+    token.delegatePublicKey,
+    delegateSignature,
+    signedValue.payload
+  );
+  
+  if (!isPayloadAuthentic) {
+    console.warn("REJECTED: Invalid Delegate Signature on payload.");
+    return false;
+  }
 
-//   return crypto.subtle.importKey(
-//     "raw",
-//     raw,
-//     { name: "ECDH", namedCurve: "P-256" },
-//     true,
-//     []
-//   );
-// }
-
-// // ---------- AES ----------
-// export async function encrypt(sharedKey, data, dataType: "string" | "image") {
-//   if (dataType === "string") {
-//     data = new TextEncoder().encode(data);
-//   }
-//   if (dataType === "image") {
-//     data = new Uint8Array(data);
-//   }
-//   const iv = crypto.getRandomValues(new Uint8Array(12));
-//   const encrypted = await crypto.subtle.encrypt(
-//     { name: "AES-GCM", iv },
-//     sharedKey,
-//     data
-//   );
-//   return { encrypted, iv };
-// }
-
-// export async function decrypt(sharedKey, encrypted, iv) {
-//   const decrypted = await crypto.subtle.decrypt(
-//     { name: "AES-GCM", iv },
-//     sharedKey,
-//     encrypted
-//   );
-//   return decrypted;
-// }
-
-// // Herhangi bir string/object veriyi ECDSA ile imzalar (Token veya İstek doğrulamak için)
-// export async function signData(data: string, identityPrivateKey: CryptoKey): Promise<ArrayBuffer> {
-//   const encoder = new TextEncoder();
-//   const encodedData = encoder.encode(data);
-
-//   return crypto.subtle.sign(
-//     { name: "ECDSA", hash: "SHA-256" },
-//     identityPrivateKey,
-//     encodedData
-//   );
-// }
-
-// // İmzanın gerçekten o public key sahibine ait olup olmadığını doğrular
-// export async function verifyDataSignature(
-//   data: string,
-//   signature: ArrayBuffer,
-//   identityPublicKey: CryptoKey
-// ): Promise<boolean> {
-//   const encoder = new TextEncoder();
-//   const encodedData = encoder.encode(data);
-
-//   return crypto.subtle.verify(
-//     { name: "ECDSA", hash: "SHA-256" },
-//     identityPublicKey,
-//     signature,
-//     encodedData
-//   );
-// }
+  // Bütün kontrollerden geçti!
+  return true; 
+}
