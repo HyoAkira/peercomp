@@ -8,7 +8,7 @@ export default function PanelNavbarComponent() {
       <label
         htmlFor="my-drawer-4"
         aria-label="open sidebar"
-        className="btn btn-square btn-ghost"
+        className="btn btn-square btn-ghost lg:hidden"
       >
         {/* Sidebar toggle icon */}
         {icons.sidebartoggle}

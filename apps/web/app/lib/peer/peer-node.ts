@@ -101,8 +101,8 @@ class NodeMap extends Map {
   async setAsync(key, value) {
     // Persist to Dexie asynchronously
     try {
-      const method = value.method || "";
-      const hashedKey = await hashKey(`${value.type}:${method}:${key}`);
+      const keyToHash = value.method ? `${value.type}:${value.method}:${key}` : `${value.type}:${key}`;
+      const hashedKey = await hashKey(keyToHash);
       // Always store in in-memory Map immediately with the raw key
       super.set(hashedKey, value);
 
@@ -117,7 +117,7 @@ class NodeMap extends Map {
         }
         case "kv": {
           // For generic KV pairs, also persist with a generic type
-          console.log("Storing KV pair in Dexie:", key, value);
+          console.log("Storing KV in Dexie:", key, value, "hashedKey:", keyToHash);
           await KvDatabase.contents.put({
             id: hashedKey,
             data: value,
@@ -188,7 +188,7 @@ class NodeMap extends Map {
       super.delete(hashedKey);
       const type = key.split(":")[0];
       console.log(
-        `Deleting key from Dexie: ${key} (hashed: ${hashedKey}, type: ${type})`
+        `Deleting key from Dexie: ${key} (hashed: ${hashedKey}, type: ${type})`,
       );
       switch (type) {
         case "function":
@@ -225,7 +225,7 @@ export class KademliaNode {
     this.storage = new NodeMap(); // Anahtar-değer deposu
     this.connections = new Map(); // peerId -> DataConnection
     this.peer = new Peer(this.id, {
-      host: "127.0.0.1",  
+      host: "127.0.0.1",
       port: 9000,
       path: "peerjs",
       secure: false,
@@ -280,7 +280,7 @@ export class KademliaNode {
     const hashedKey = await hashKey(key);
     const nearest = this._findClosestLocal(hashedKey, K);
     const promises = nearest.map((node) =>
-      this._sendRPC(node.id, { type: "STORE", key, value })
+      this._sendRPC(node.id, { type: "STORE", key, value }),
     );
     await Promise.allSettled(promises);
     await this.storage.setAsync(key, value); // Kendinde de tut
@@ -289,7 +289,7 @@ export class KademliaNode {
     const hashedKey = await hashKey(key);
     const nearest = this._findClosestLocal(hashedKey, K);
     const promises = nearest.map((node) =>
-      this._sendRPC(node.id, { type: "DELETE", key })
+      this._sendRPC(node.id, { type: "DELETE", key }),
     );
     await Promise.allSettled(promises);
     await this.storage.deleteAsync(key); // Kendinde de sil
@@ -306,7 +306,7 @@ export class KademliaNode {
     // 1. Başlangıç: En yakın ALPHA kadar yerel node'u ekle
     const initialNodes = this._findClosestLocal(actualTarget, ALPHA);
     initialNodes.forEach((n) =>
-      shortlist.set(n.id, { id: n.id, seen: true, queried: false })
+      shortlist.set(n.id, { id: n.id, seen: true, queried: false }),
     );
 
     let closestNodeId = initialNodes.length > 0 ? initialNodes[0].id : null;
@@ -339,7 +339,7 @@ export class KademliaNode {
               : actualTarget,
           } as any);
           return { from: node.id, res };
-        })
+        }),
       );
 
       let foundValue = null;
@@ -384,8 +384,8 @@ export class KademliaNode {
       nodes: Array.from(shortlist.values())
         .sort((a, b) =>
           Number(
-            xorDistance(actualTarget, a.id) - xorDistance(actualTarget, b.id)
-          )
+            xorDistance(actualTarget, a.id) - xorDistance(actualTarget, b.id),
+          ),
         )
         .slice(0, K),
     };
@@ -396,7 +396,7 @@ export class KademliaNode {
   //   if (nearest.length === 0) {
   //     throw new Error("No nodes available to call the function.");
   //   }
-    
+
   //   const promises = nearest.map((node) =>
   //     this._sendRPC(node.id, { type: "FUNCTION-CALL", key }).then((res) => {
   //       if (!res) throw new Error("RPC timeout");
@@ -415,13 +415,13 @@ export class KademliaNode {
     if (nearest.length === 0) {
       throw new Error("No nodes available to call the function.");
     }
-    
+
     // ALPHA / CHUNK PARAMETRESİ: Aynı anda kaç paralel istek atılacak?
-    const CHUNK_SIZE = ALPHA; 
-    
+    const CHUNK_SIZE = ALPHA;
+
     // Yakın peer listesini 3'erli paralel gruplara bölüyoruz
     // Örn: [Node1, Node2, Node3, Node4, Node5] -> [[Node1, Node2, Node3], [Node4, Node5]]
-    const groups: typeof nearest[] = [];
+    const groups: (typeof nearest)[] = [];
     for (let i = 0; i < nearest.length; i += CHUNK_SIZE) {
       groups.push(nearest.slice(i, i + CHUNK_SIZE));
     }
@@ -435,16 +435,15 @@ export class KademliaNode {
             if (!res) throw new Error("RPC timeout");
             if (res.error) throw new Error(res.message || "RPC error");
             return res;
-          })
+          }),
         );
 
         // Gruptaki 3 paralel istekten EN HIZLI dönen başarılı yanıtı alıyoruz
         const firstResponse = await Promise.any(promises);
-        
+
         // Eğer gruptan biri başarılı olduysa veriyi hemen dönüyoruz.
         // Döngü burada biter ve arkadaki diğer node'lara boşuna istek ATILMAZ.
         return firstResponse.data;
-
       } catch (groupError) {
         // Eğer bu gruptaki 3 node'un HEPSİ timeout olduysa veya hata verdiyse
         // Promise.any buraya düşer. continue ile sıradaki 3'lü paralel gruba geçeriz.
@@ -528,7 +527,7 @@ export class KademliaNode {
       | { type: "FIND_VALUE"; key: any }
       | { type: "STORE"; key: any; value: any }
       | { type: "FUNCTION-CALL"; key: any }
-      | { type: "DELETE"; key: any }
+      | { type: "DELETE"; key: any },
   ): Promise<RPCResult | null> {
     const conn = await this._connect(peerId);
     if (!conn) return null;
@@ -555,7 +554,7 @@ export class KademliaNode {
     const result = await this._sendRPC(peerId, { type: "FIND_NODE", targetId });
     if (!result || result.error || !result.data) return [];
     return "nodes" in (result.data as any)
-      ? (result.data as any).nodes ?? []
+      ? ((result.data as any).nodes ?? [])
       : [];
   }
 
@@ -638,6 +637,7 @@ export class KademliaNode {
 
         break;
       }
+
       case "FUNCTION-CALL":
         // find value ile fonksiyonun kendisi gelmeli, onu çalıştırıp sonucu döndürmeliyiz
         const funcData = await this.findValue(msg.key);
@@ -645,7 +645,7 @@ export class KademliaNode {
           "FUNCTION-CALL message received for key:",
           msg.key,
           "found funcData:",
-          funcData
+          funcData,
         );
         if (funcData && funcData.type === "function") {
           try {
@@ -679,7 +679,7 @@ export class KademliaNode {
                 new URL("./worker.js", import.meta.url),
                 {
                   type: "module",
-                }
+                },
               );
 
               // 5 Saniye Zaman Aşımı Koruması (Sonsuz döngüleri önlemek için)
@@ -688,8 +688,8 @@ export class KademliaNode {
                 // URL.revokeObjectURL(workerUrl);
                 reject(
                   new Error(
-                    "Execution Timeout: Fonksiyon zaman aşımına uğradı."
-                  )
+                    "Execution Timeout: Fonksiyon zaman aşımına uğradı.",
+                  ),
                 );
               }, 5000);
 
@@ -703,7 +703,7 @@ export class KademliaNode {
                   resolve(event.data.data); // Başarılı sonucu Promise'e dön
                 } else {
                   reject(
-                    new Error(event.data.message || "Worker execution failed")
+                    new Error(event.data.message || "Worker execution failed"),
                   );
                 }
               };
@@ -720,14 +720,14 @@ export class KademliaNode {
 
             console.log(
               `[DHT RPC] '${msg.key}' başarıyla çalıştırıldı. Sonuç:`,
-              output
+              output,
             );
           } catch (error) {
             const err =
               error instanceof Error ? error : new Error(String(error));
             console.error(
               `[DHT RPC ERROR] '${msg.key}' çalıştırılırken hata:`,
-              err.message
+              err.message,
             );
             // Hata durumunda result değişkenine ne atamak istediğine göre burayı güncelleyebilirsin
             result = {
@@ -739,7 +739,7 @@ export class KademliaNode {
           }
         } else {
           console.warn(
-            `[DHT RPC] '${msg.key}' anahtarıyla eşleşen geçerli bir fonksiyon bulunamadı.`
+            `[DHT RPC] '${msg.key}' anahtarıyla eşleşen geçerli bir fonksiyon bulunamadı.`,
           );
           result = {
             code: 404,
