@@ -26,4 +26,12 @@ router.post("/update-profile", verifyToken, async (req, res, next) => {
   return await UserController.updateProfile(req, res, next);
 });
 
+router.post("/update-keypair", verifyToken, async (req, res, next) => {
+  return await UserController.updateKeypair(req, res, next);
+});
+
+router.get("/keypair", verifyToken, async (req, res, next) => {
+  return await UserController.getKeypair(req, res, next);
+});
+
 export default router;

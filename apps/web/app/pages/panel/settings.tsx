@@ -79,6 +79,28 @@ export default function SettingsPage() {
     };
   }, [token]);
 
+  // Load keypair from backend on page load
+  useEffect(() => {
+    if (!token) return;
+    (async () => {
+      const url = `${api.baseURL}${api.apiURL}/users/keypair`;
+      const options = {
+        method: "GET",
+        headers: { authorization: `Bearer ${token}` },
+      };
+
+      try {
+        const response = await fetch(url, options);
+        const data = await response.json();
+        if (response.ok && data.data && data.data.publicKey && data.data.privateKey) {
+          setKeyPair(data.data as SerializedIdentityKey);
+        }
+      } catch (error) {
+        console.error("Failed to load keypair:", error);
+      }
+    })();
+  }, [token, setKeyPair]);
+
   function handleProfileChange(
     event: React.ChangeEvent<HTMLInputElement>,
   ): void {
@@ -179,6 +201,28 @@ export default function SettingsPage() {
       const owner = await IdentityKey.generate();
       const exported = await owner.export();
       setKeyPair(exported);
+      
+      // Persist to backend
+      const url = `${api.baseURL}${api.apiURL}/users/update-keypair`;
+      const options = {
+        method: "POST",
+        headers: {
+          authorization: `Bearer ${token}`,
+          "content-type": "application/json",
+        },
+        body: JSON.stringify(exported),
+      };
+      
+      try {
+        const response = await fetch(url, options);
+        const data = await response.json();
+        if (!response.ok || data.error) {
+          console.error("Failed to persist keypair to backend:", data.message);
+        }
+      } catch (backendError) {
+        console.error("Backend keypair sync failed:", backendError);
+      }
+      
       showAlert("Anahtar çifti başarıyla oluşturuldu.");
     } catch (error) {
       console.error(error);
@@ -232,7 +276,30 @@ export default function SettingsPage() {
         ) {
           throw new Error("Geçersiz anahtar çifti dosyası.");
         }
-        setKeyPair(parsed as SerializedIdentityKey);
+        const uploadedKeypair = parsed as SerializedIdentityKey;
+        setKeyPair(uploadedKeypair);
+        
+        // Persist to backend
+        const url = `${api.baseURL}${api.apiURL}/users/update-keypair`;
+        const options = {
+          method: "POST",
+          headers: {
+            authorization: `Bearer ${token}`,
+            "content-type": "application/json",
+          },
+          body: JSON.stringify(uploadedKeypair),
+        };
+        
+        try {
+          const response = await fetch(url, options);
+          const data = await response.json();
+          if (!response.ok || data.error) {
+            console.error("Failed to persist keypair to backend:", data.message);
+          }
+        } catch (backendError) {
+          console.error("Backend keypair sync failed:", backendError);
+        }
+        
         showAlert("Anahtar çifti başarıyla yüklendi.");
       } catch (error) {
         console.error(error);

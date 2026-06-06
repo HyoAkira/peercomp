@@ -87,6 +87,30 @@ class UserController {
       next(error);
     }
   }
+
+  async updateKeypair(req: Request, res: Response, next: NextFunction) {
+    try {
+      const userId = req.userId;
+      const { publicKey, privateKey } = req.body;
+      const result = await this.userService.updateKeypair(userId, {
+        publicKey,
+        privateKey,
+      });
+      res.status(result.code).json(result);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async getKeypair(req: Request, res: Response, next: NextFunction) {
+    try {
+      const userId = req.userId;
+      const result = await this.userService.getKeypair(userId);
+      res.status(result.code).json(result);
+    } catch (error) {
+      next(error);
+    }
+  }
 }
 
 const userController = new UserController(new UserService());

@@ -253,6 +253,44 @@ class UserService {
       data: null,
     };
   }
+
+  async updateKeypair(userId: string, keypair: { publicKey: string; privateKey: string }) {
+    const user = await User.findById(userId);
+    if (!user) {
+      return {
+        code: 404,
+        message: "Kullanıcı bulunamadı",
+        error: true,
+        data: null,
+      };
+    }
+    user.keypair = keypair;
+    await user.save();
+    return {
+      code: 200,
+      message: "Anahtar çifti başarıyla güncellendi",
+      error: false,
+      data: null,
+    };
+  }
+
+  async getKeypair(userId: string) {
+    const user = await User.findById(userId).select("keypair");
+    if (!user) {
+      return {
+        code: 404,
+        message: "Kullanıcı bulunamadı",
+        error: true,
+        data: null,
+      };
+    }
+    return {
+      code: 200,
+      message: "Anahtar çifti başarıyla getirildi",
+      error: false,
+      data: user.keypair,
+    };
+  }
 }
 
 export default UserService;
