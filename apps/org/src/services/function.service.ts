@@ -22,7 +22,7 @@ export default class FunctionService {
     await func.save();
     return {
       code: 201,
-      message: "Function created successfully",
+      message: "Fonksiyon başarıyla oluşturuldu",
       error: false,
       data: func,
     };
@@ -32,7 +32,7 @@ export default class FunctionService {
     if (!func) {
       return {
         code: 404,
-        message: "Function not found",
+        message: "Fonksiyon bulunamadı",
         error: true,
         data: null,
       };
@@ -40,14 +40,14 @@ export default class FunctionService {
     if (func.author.toString() !== userId) {
       return {
         code: 403,
-        message: "Access denied. You are not the author of this function.",
+        message: "Erişim reddedildi. Bu fonksiyonun yazarı değilsiniz.",
         error: true,
         data: null,
       };
     }
     return {
       code: 200,
-      message: "Function retrieved successfully",
+      message: "Fonksiyon başarıyla getirildi",
       error: false,
       data: func,
     };
@@ -58,7 +58,7 @@ export default class FunctionService {
     if (!func) {
       return {
         code: 404,
-        message: "Function not found",
+        message: "Fonksiyon bulunamadı",
         error: true,
         data: null,
       };
@@ -66,14 +66,14 @@ export default class FunctionService {
     if (func.author.toString() !== userId) {
       return {
         code: 403,
-        message: "Access denied. You are not the author of this function.",
+        message: "Erişim reddedildi. Bu fonksiyonun yazarı değilsiniz.",
         error: true,
         data: null,
       };
     }
     return {
       code: 200,
-      message: "Function retrieved successfully",
+      message: "Fonksiyon başarıyla getirildi",
       error: false,
       data: func,
     };
@@ -92,14 +92,14 @@ export default class FunctionService {
       method?: "GET" | "POST";
       code?: string;
     },
-    userId: string
+    userId: string,
   ) {
     const func = await FunctionModel.findById(id);
 
     if (!func) {
       return {
         code: 404,
-        message: "Function not found",
+        message: "Fonksiyon bulunamadı",
         error: true,
         data: null,
       };
@@ -111,7 +111,7 @@ export default class FunctionService {
     if (func.author.toString() !== userId) {
       return {
         code: 403,
-        message: "Access denied. You are not the author of this function.",
+        message: "Erişim reddedildi. Bu fonksiyonun yazarı değilsiniz.",
         error: true,
         data: null,
       };
@@ -123,7 +123,7 @@ export default class FunctionService {
     await func.save();
     return {
       code: 200,
-      message: "Function updated successfully",
+      message: "Fonksiyon başarıyla güncellendi",
       error: false,
       data: func,
     };
@@ -133,7 +133,7 @@ export default class FunctionService {
     const functions = await FunctionModel.find({ author: authorId });
     return {
       code: 200,
-      message: "Functions retrieved successfully",
+      message: "Fonksiyonlar başarıyla getirildi",
       error: false,
       data: functions,
     };
@@ -144,7 +144,7 @@ export default class FunctionService {
     if (!func) {
       return {
         code: 404,
-        message: "Function not found",
+        message: "Fonksiyon bulunamadı",
         error: true,
         data: null,
       };
@@ -152,7 +152,7 @@ export default class FunctionService {
     if (func.author.toString() !== userId) {
       return {
         code: 403,
-        message: "Access denied. You are not the author of this function.",
+        message: "Erişim reddedildi. Bu fonksiyonun yazarı değilsiniz.",
         error: true,
         data: null,
       };
@@ -160,7 +160,7 @@ export default class FunctionService {
     await func.deleteOne();
     return {
       code: 200,
-      message: "Function deleted successfully",
+      message: "Fonksiyon başarıyla silindi",
       error: false,
       data: func,
     };
@@ -170,14 +170,14 @@ async function checkExist(
   endpoint?: string,
   author?: string,
   method?: string,
-  excludeId?: string
+  excludeId?: string,
 ) {
   if (!endpoint || !author || !method) return;
   const check = await FunctionModel.findOne({ endpoint, author, method });
   if (check && check._id.toString() !== excludeId) {
     return {
       code: 400,
-      message: "You already have a function with this endpoint and method",
+      message: "Bu endpoint ve metodla zaten bir fonksiyonunuz var",
       error: true,
       data: null,
     };

@@ -39,7 +39,7 @@ export default class KVService {
     await kv.save();
     return {
       code: 201,
-      message: "KV created successfully",
+      message: "KV başarıyla oluşturuldu",
       error: false,
       data: kv,
     };
@@ -48,7 +48,7 @@ export default class KVService {
     const allKV = await KVModel.find({ author: userId });
     return {
       code: 200,
-      message: "KVs retrieved successfully",
+      message: "KV'ler başarıyla getirildi",
       error: false,
       data: allKV,
     };
@@ -58,7 +58,7 @@ export default class KVService {
     if (!kv) {
       return {
         code: 404,
-        message: "KV not found",
+        message: "KV bulunamadı",
         error: true,
         data: null,
       };
@@ -67,7 +67,7 @@ export default class KVService {
     if (kv.author.toString() !== userId) {
       return {
         code: 403,
-        message: "Access denied. You are not the author of this KV.",
+        message: "Erişim reddedildi. Bu KV'nin yazarı değilsiniz.",
         error: true,
         data: null,
       };
@@ -75,7 +75,7 @@ export default class KVService {
     await kv.deleteOne();
     return {
       code: 200,
-      message: "KV deleted successfully",
+      message: "KV başarıyla silindi",
       error: false,
       data: kv,
     };
@@ -97,13 +97,13 @@ export default class KVService {
       metadata?: JSON;
       encrypted?: Types.Buffer;
       iv?: Types.Buffer;
-    }
+    },
   ) {
     const kv = await KVModel.findById(kvId);
     if (!kv) {
       return {
         code: 404,
-        message: "KV not found",
+        message: "KV bulunamadı",
         error: true,
         data: null,
       };
@@ -115,7 +115,7 @@ export default class KVService {
     if (kv.author.toString() !== userId) {
       return {
         code: 403,
-        message: "Access denied. You are not the author of this KV.",
+        message: "Erişim reddedildi. Bu KV'nin yazarı değilsiniz.",
         error: true,
         data: null,
       };
@@ -129,7 +129,7 @@ export default class KVService {
     await kv.save();
     return {
       code: 200,
-      message: "KV updated successfully",
+      message: "KV başarıyla güncellendi",
       error: false,
       data: kv,
     };
@@ -142,7 +142,7 @@ async function checkExist(key?: string, author?: string, excludeId?: string) {
   if (check && check._id.toString() !== excludeId) {
     return {
       code: 400,
-      message: "You already have a KV with this key",
+      message: "Bu anahtarla zaten bir KV'niz var",
       error: true,
       data: null,
     };

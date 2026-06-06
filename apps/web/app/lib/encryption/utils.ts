@@ -11,11 +11,11 @@
 // 1. Yardımcı Dönüşüm Fonksiyonları
 // ─────────────────────────────────────────────
 
-function bufferToBase64(buf: ArrayBuffer): string {
+export function bufferToBase64(buf: ArrayBuffer): string {
   return btoa(String.fromCharCode(...new Uint8Array(buf)));
 }
 
-function base64ToBuffer(b64: string): ArrayBuffer {
+export function base64ToBuffer(b64: string): ArrayBuffer {
   const bin = atob(b64);
   const buf = new Uint8Array(bin.length);
   for (let i = 0; i < bin.length; i++) buf[i] = bin.charCodeAt(i);
@@ -25,7 +25,7 @@ function base64ToBuffer(b64: string): ArrayBuffer {
 /**
  * Glob Pattern Eşleştirme (örn: "posts/*" -> "posts/123" ile eşleşir)
  */
-function doesKeyMatchPattern(key: string, patterns: string[]): boolean {
+export function doesKeyMatchPattern(key: string, patterns: string[]): boolean {
   return patterns.some(pattern => {
     const escapeRegex = (s: string) => s.replace(/([.+?^${}()|\[\]\/\\])/g, "\\$1");
     const regexPattern = "^" + pattern.split("*").map(escapeRegex).join(".*") + "$";

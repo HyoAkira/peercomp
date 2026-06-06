@@ -19,6 +19,7 @@ export default [
     route("panel/profile", "./pages/panel/profile.tsx"),
     route("panel/functions", "./pages/panel/functions.tsx"),
     route("panel/kv", "./pages/panel/kv.tsx"),
+    route("panel/settings", "./pages/panel/settings.tsx"),
   ]),
   route("sandbox", "./pages/sandbox/test.tsx"),
 ] satisfies RouteConfig;

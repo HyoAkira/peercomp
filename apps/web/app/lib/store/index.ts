@@ -1,7 +1,7 @@
 import { create } from "zustand";
-import { KademliaNode } from "~/lib/peer/peer-node";
 import { createJSONStorage, persist } from "zustand/middleware";
-import { use } from "react";
+import { KademliaNode } from "~/lib/peer/peer-node";
+import type { SerializedIdentityKey } from "~/lib/encryption/utils";
 
 type TokenStore = {
   token: string;
@@ -16,8 +16,26 @@ const useToken = create<TokenStore>()(
     {
       name: "auth-storage",
       storage: createJSONStorage(() => localStorage),
-    }
-  )
+    },
+  ),
+);
+
+type IdentityKeyStore = {
+  keyPair: SerializedIdentityKey | null;
+  setKeyPair: (keyPair: SerializedIdentityKey | null) => void;
+};
+
+const useIdentityKey = create<IdentityKeyStore>()(
+  persist(
+    (set) => ({
+      keyPair: null as SerializedIdentityKey | null,
+      setKeyPair: (keyPair: SerializedIdentityKey | null) => set({ keyPair }),
+    }),
+    {
+      name: "identity-key-storage",
+      storage: createJSONStorage(() => localStorage),
+    },
+  ),
 );
 
 const useFunctions = create<{
@@ -27,7 +45,7 @@ const useFunctions = create<{
   setFunctions: (
     functions: Array<
       Readonly<{ _id: string; name: string; method: string; code: string }>
-    >
+    >,
   ) => void;
 }>((set) => ({
   functions: [] as Array<
@@ -36,11 +54,16 @@ const useFunctions = create<{
   setFunctions: (
     functions: Array<
       Readonly<{ _id: string; name: string; method: string; code: string }>
-    >
+    >,
   ) => set({ functions }),
 }));
 
-const useAlertMsg = create((set) => ({
+type AlertStore = {
+  alertMsg: string;
+  setAlertMsg: (msg: string) => void;
+};
+
+const useAlertMsg = create<AlertStore>()((set) => ({
   alertMsg: "",
   setAlertMsg: (msg: string) => set({ alertMsg: msg }),
 }));
@@ -68,7 +91,7 @@ const useKv = create<{
         metadata: Record<string, any>;
         author: string;
       }>
-    >
+    >,
   ) => void;
 }>((set) => ({
   kv: [] as Array<
@@ -93,7 +116,7 @@ const useKv = create<{
         metadata: Record<string, any>;
         author: string;
       }>
-    >
+    >,
   ) => set({ kv }),
 }));
 
@@ -104,4 +127,4 @@ const usePeerNode = create<{
   peerNode: null,
   setPeerNode: (peerNode: KademliaNode | null) => set({ peerNode }),
 }));
-export { useToken, useFunctions, useAlertMsg, useKv, usePeerNode };
+export { useAlertMsg, useFunctions, useIdentityKey, useKv, usePeerNode, useToken };

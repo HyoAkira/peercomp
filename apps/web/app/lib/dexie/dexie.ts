@@ -9,6 +9,8 @@ interface IKv {
   id: string;
   data: JSON;
 }
+
+
 type TFunction = Dexie & { contents: EntityTable<IFunction> };
 type TKv = Dexie & { contents: EntityTable<IKv> };
 const FunctionDatabase = new Dexie("FunctionDatabase") as TFunction;

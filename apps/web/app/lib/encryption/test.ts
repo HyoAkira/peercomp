@@ -1,12 +1,8 @@
-import {
-  IdentityKey,
-  SignedValue,
-  DelegationToken,
-  validateP2PWriteRequest
-} from "./crypto"; // Yukarıdaki dosyanın adı neyse ona göre import et
-
+import type { DelegationToken, SignedValue } from "./utils";
+import { IdentityKey, validateP2PWriteRequest } from "./utils"; // Yukarıdaki dosyanın adı neyse ona göre import et
 // ArrayBuffer'ı Base64'e çevirmek için yardımcı (Örnek içinde imzaları string yapmak için)
-const toB64 = (buf: ArrayBuffer) => btoa(String.fromCharCode(...new Uint8Array(buf)));
+const toB64 = (buf: ArrayBuffer) =>
+  btoa(String.fromCharCode(...new Uint8Array(buf)));
 
 async function runP2PDemo() {
   console.log("==================================================");
@@ -20,14 +16,13 @@ async function runP2PDemo() {
   const owner = await IdentityKey.generate();
   const ownerPublicKey = await owner.exportPublicKey();
   const targetNamespace = await IdentityKey.calculateNamespace(ownerPublicKey);
-  
+
   console.log(`[Ağ Kurulumu] Owner oluşturuldu.`);
   console.log(`[Ağ Kurulumu] Hedef Namespace (SHA-256): ${targetNamespace}\n`);
 
   // Yetki Verilecek Kullanıcı (Delegate - Token Sahibi)
   const delegate = await IdentityKey.generate();
   const delegatePublicKey = await delegate.exportPublicKey();
-
 
   // ---------------------------------------------------------
   // SENARYO 1: OWNER DOĞRUDAN KENDİ NAMESPACE'İNE YAZIYOR
@@ -36,12 +31,15 @@ async function runP2PDemo() {
   console.log("SENARYO 1: Owner Doğrudan Kendi Alanına Yazıyor");
   console.log("--------------------------------------------------");
 
-  const ownerPayload = JSON.stringify({ msg: "Sistemin tek sahibiyim.", ts: Date.now() });
+  const ownerPayload = JSON.stringify({
+    msg: "Sistemin tek sahibiyim.",
+    ts: Date.now(),
+  });
   const ownerSigBuf = await owner.sign(ownerPayload);
-  
+
   const signedValueByOwner: SignedValue = {
     payload: ownerPayload,
-    ownerSignature: toB64(ownerSigBuf)
+    ownerSignature: toB64(ownerSigBuf),
   };
 
   // Ağdaki bir node bu isteği aldığında doğrular:
@@ -49,10 +47,11 @@ async function runP2PDemo() {
     targetNamespace,
     "profile/avatar", // Key fark etmez, owner her yere yazabilir
     signedValueByOwner,
-    ownerPublicKey
+    ownerPublicKey,
   );
-  console.log(`>> İstek Sonucu: ${result1 ? "✅ KABUL EDİLDİ" : "❌ REDDEDİLDİ"}\n`);
-
+  console.log(
+    `>> İstek Sonucu: ${result1 ? "✅ KABUL EDİLDİ" : "❌ REDDEDİLDİ"}\n`,
+  );
 
   // ---------------------------------------------------------
   // SENARYO 2: DELEGATE, ALDIĞI İZİN (TOKEN) İLE YAZIYOR
@@ -68,7 +67,7 @@ async function runP2PDemo() {
   const tokenDataToSign = JSON.stringify({
     delegatePublicKey: delegatePublicKey,
     allowedKeys: allowedPatterns,
-    expiresAt: expiresAt
+    expiresAt: expiresAt,
   });
   const tokenSigBuf = await owner.sign(tokenDataToSign);
 
@@ -76,17 +75,20 @@ async function runP2PDemo() {
     delegatePublicKey: delegatePublicKey,
     allowedKeys: allowedPatterns,
     expiresAt: expiresAt,
-    ownerSignature: toB64(tokenSigBuf)
+    ownerSignature: toB64(tokenSigBuf),
   };
 
   // 2. Adım: Delegate, izin verilen bir key'e ("posts/42") veri yazar ve imzalar
-  const delegatePayload = JSON.stringify({ title: "P2P Harika", content: "UCAN mimarisi devrede." });
+  const delegatePayload = JSON.stringify({
+    title: "P2P Harika",
+    content: "UCAN mimarisi devrede.",
+  });
   const delegatePayloadSigBuf = await delegate.sign(delegatePayload);
 
   const signedValueByDelegate: SignedValue = {
     payload: delegatePayload,
     token: validToken,
-    delegateSignature: toB64(delegatePayloadSigBuf)
+    delegateSignature: toB64(delegatePayloadSigBuf),
   };
 
   // Ağdaki bir node doğrular:
@@ -94,10 +96,11 @@ async function runP2PDemo() {
     targetNamespace,
     "posts/42", // "posts/*" pattern'ına uyuyor!
     signedValueByDelegate,
-    ownerPublicKey
+    ownerPublicKey,
   );
-  console.log(`>> İstek Sonucu: ${result2 ? "✅ KABUL EDİLDİ" : "❌ REDDEDİLDİ"}\n`);
-
+  console.log(
+    `>> İstek Sonucu: ${result2 ? "✅ KABUL EDİLDİ" : "❌ REDDEDİLDİ"}\n`,
+  );
 
   // ---------------------------------------------------------
   // SENARYO 3: DELEGATE, YETKİSİ DIŞINDAKİ BİR ALANA SIZMAYA ÇALIŞIYOR
@@ -111,9 +114,11 @@ async function runP2PDemo() {
     targetNamespace,
     "settings/config", // İLLEGAL KEY: Token sadece "posts/*" ve "comments/*" için geçerli!
     signedValueByDelegate,
-    ownerPublicKey
+    ownerPublicKey,
   );
-  console.log(`>> İstek Sonucu: ${result3 ? "✅ KABUL EDİLDİ" : "❌ REDDEDİLDİ (Güvenlik Duvarı Çalıştı)"}\n`);
+  console.log(
+    `>> İstek Sonucu: ${result3 ? "✅ KABUL EDİLDİ" : "❌ REDDEDİLDİ (Güvenlik Duvarı Çalıştı)"}\n`,
+  );
 }
 
 // Demoyu çalıştır
