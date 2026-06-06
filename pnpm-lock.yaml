@@ -127,6 +127,9 @@ importers:
       '@peercomp/config':
         specifier: workspace:*
         version: link:../../packages/config
+      '@peercomp/encryption':
+        specifier: workspace:*
+        version: link:../../packages/encryption
       '@react-router/node':
         specifier: 7.14.0
         version: 7.14.0(react-router@7.14.0(react-dom@19.2.5(react@19.2.5))(react@19.2.5))(typescript@5.9.3)
@@ -202,6 +205,8 @@ importers:
         version: 8.0.10(@types/node@22.19.17)(esbuild@0.28.0)(jiti@2.6.1)(terser@5.48.0)(tsx@4.22.3)
 
   packages/config: {}
+
+  packages/encryption: {}
 
 packages:
 

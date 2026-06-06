@@ -25,7 +25,8 @@
     "ses": "^2.1.0",
     "terser": "^5.48.0",
     "zod": "^4.4.3",
-    "zustand": "^5.0.12"
+    "zustand": "^5.0.12",
+    "@peercomp/encryption": "workspace:*"
   },
   "devDependencies": {
     "@react-router/dev": "7.14.0",

@@ -1,15 +1,17 @@
-import { useKv, useToken } from "~/lib/store";
-import icons from "./components/icons";
-import NewStorageModal from "./components/newStorageModal";
+import { api } from "@peercomp/config";
 import { useEffect } from "react";
+import { bufferToBase64, IdentityKey } from "@peercomp/encryption/utils";
+import { useIdentityKey, useKv, useToken } from "~/lib/store";
 import DeleteStorageModalComponent from "./components/deleteStorageModal";
 import EditStorageModalComponent from "./components/editStorageModal";
-import { api } from "@peercomp/config";
+import icons from "./components/icons";
+import NewStorageModal from "./components/newStorageModal";
 
 export default function StoragePage() {
   const kv = useKv((state) => state.kv);
   const setKv = useKv((state) => state.setKv);
   const token = useToken((state) => state.token);
+  const keyPair = useIdentityKey((state) => state.keyPair);
   useEffect(() => {
     (async () => {
       if (!token) return;
@@ -25,6 +27,15 @@ export default function StoragePage() {
         const response = await fetch(url, options);
         const data = await response.json();
         if (!data.error) setKv(data.data);
+        // encryption baslangic
+        if (keyPair && data.data) {
+          const owner = await IdentityKey.import(keyPair);
+          const ownerSigBuf = await owner.sign(JSON.stringify(data.data));
+          const signedValueByOwner = {
+            payload: data.data,
+            ownerSignature: bufferToBase64(ownerSigBuf),
+          };
+        }
       } catch (error) {
         console.error("Error fetching KV data:", error);
       }
@@ -97,7 +108,10 @@ function StorageItem({
       <div className="flex gap-1">
         {/* EDIT */}
         <div className="tooltip tooltip-top" data-tip="Düzenle">
-          <label htmlFor={`storage_modal_${id}`} className="btn btn-square btn-ghost">
+          <label
+            htmlFor={`storage_modal_${id}`}
+            className="btn btn-square btn-ghost"
+          >
             {icons.edit}
           </label>
         </div>

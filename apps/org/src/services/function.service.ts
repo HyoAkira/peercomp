@@ -1,4 +1,4 @@
-import FunctionModel from "../models/functions.model";
+import FunctionModel from "../models/function.model";
 
 export default class FunctionService {
   async createFunction({
@@ -7,18 +7,22 @@ export default class FunctionService {
     method,
     code,
     author,
+    metadata,
   }: {
     name: string;
     endpoint: string;
     method: "GET" | "POST";
     code: string;
     author: string;
+    metadata: {
+      namespace: string;
+    };
   }) {
     const check = await checkExist(endpoint, author, method);
     if (check?.error) {
       return check;
     }
-    const func = new FunctionModel({ name, endpoint, method, code, author });
+    const func = new FunctionModel({ name, endpoint, method, code, author, metadata });
     await func.save();
     return {
       code: 201,

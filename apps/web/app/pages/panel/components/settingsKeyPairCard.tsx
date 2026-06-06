@@ -1,5 +1,5 @@
 import { type ChangeEvent, type RefObject } from "react";
-import { type SerializedIdentityKey } from "~/lib/encryption/utils";
+import { type SerializedIdentityKey } from "@peercomp/encryption/utils";
 
 type SettingsKeyPairCardProps = {
   keyPair: SerializedIdentityKey | null;
@@ -25,7 +25,9 @@ export default function SettingsKeyPairCard({
       <div className="card-body">
         <h2 className="card-title">Anahtar Çifti İçe Aktar & Dışa Aktar</h2>
         <p className="text-sm opacity-70">
-          Anahtar çifti oluşturun, indirerek yedekleyin veya dosyadan yükleyin.
+          Anahtar çifti oluşturun, indirerek yedekleyin veya dosyadan yükleyin. <br/>
+          Anahtar çifti, mesajlarınızın güvenliği için gereklidir. <br/> Yeni bir anahtar çifti oluşturmak, eski anahtar çiftinizi geçersiz kılar ve yeni anahtar çiftiyle şifrelenmiş mesajlar almanızı sağlar. <br/>
+          Anahtar çiftinizi kaybetmeyin, çünkü kaybolan anahtar çiftiyle şifrelenmiş mesajlara erişemezsiniz. <br/>
         </p>
 
         <div className="alert alert-info">

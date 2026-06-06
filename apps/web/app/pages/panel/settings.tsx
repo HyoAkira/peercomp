@@ -1,6 +1,6 @@
 import { api } from "@peercomp/config";
 import { useEffect, useRef, useState } from "react";
-import { IdentityKey, type SerializedIdentityKey } from "~/lib/encryption/utils";
+import { IdentityKey, type SerializedIdentityKey } from "@peercomp/encryption/utils";
 import { useAlertMsg, useIdentityKey, useToken } from "~/lib/store";
 import SettingsKeyPairCard from "./components/settingsKeyPairCard";
 import SettingsPasswordCard from "./components/settingsPasswordCard";

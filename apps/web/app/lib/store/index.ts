@@ -1,8 +1,7 @@
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 import { KademliaNode } from "~/lib/peer/peer-node";
-import type { SerializedIdentityKey } from "~/lib/encryption/utils";
-
+import type { SerializedIdentityKey } from "@peercomp/encryption/utils";
 type TokenStore = {
   token: string;
   setToken: (token: string) => void;

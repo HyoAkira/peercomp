@@ -2,7 +2,14 @@ import { api } from "@peercomp/config";
 import CodeEditor from "@uiw/react-textarea-code-editor"; // <-- Paket eklendi
 import { useRef, useState } from "react";
 import { minify } from "terser";
-import { useAlertMsg, useFunctions, usePeerNode, useToken } from "~/lib/store";
+import { IdentityKey } from "@peercomp/encryption/utils";
+import {
+  useAlertMsg,
+  useFunctions,
+  useIdentityKey,
+  usePeerNode,
+  useToken,
+} from "~/lib/store";
 type FunctionMethod = "GET" | "POST";
 
 export default function NewFuncModal({}: Readonly<{}>) {
@@ -14,9 +21,9 @@ export default function NewFuncModal({}: Readonly<{}>) {
   const [inputEndpoint, setEndpoint] = useState("");
   const setAlertMsg = useAlertMsg((state) => state.setAlertMsg);
   const node = usePeerNode((state) => state.peerNode);
-
+  const keyPair = useIdentityKey((state) => state.keyPair);
   const [inputMethod, setMethod] = useState<FunctionMethod>(
-    "GET" as FunctionMethod
+    "GET" as FunctionMethod,
   );
 
   const [inputCode, setCode] = useState(`(async ()=> {
@@ -25,10 +32,17 @@ export default function NewFuncModal({}: Readonly<{}>) {
 })`);
 
   async function handleSave(
-    event: React.MouseEvent<HTMLButtonElement, MouseEvent>
+    event: React.MouseEvent<HTMLButtonElement, MouseEvent>,
   ): Promise<void> {
     event.preventDefault();
-
+    if (!keyPair) {
+      toggle.current?.click();
+      setAlertMsg("Lütfen önce bir anahtar çifti oluşturun.");
+      setTimeout(() => {
+        setAlertMsg("");
+      }, 3000);
+      return;
+    }
     const url = `${api.baseURL}${api.apiURL}functions/create`;
     let finalCode = inputCode;
     const minifiedResult = await minify(inputCode, {
@@ -49,6 +63,10 @@ export default function NewFuncModal({}: Readonly<{}>) {
     if (minifiedResult && minifiedResult.code) {
       finalCode = minifiedResult.code;
     }
+    const ownerPublicKey = keyPair.publicKey;
+    const targetNamespace =
+      await IdentityKey.calculateNamespace(ownerPublicKey);
+
     const options = {
       method: "POST",
       headers: {
@@ -60,6 +78,9 @@ export default function NewFuncModal({}: Readonly<{}>) {
         endpoint: inputEndpoint,
         method: inputMethod,
         code: finalCode,
+        metadata: {
+          namespace: targetNamespace,
+        },
       }),
     };
 
@@ -73,6 +94,9 @@ export default function NewFuncModal({}: Readonly<{}>) {
           method: string;
           code: string;
           type: string;
+          metadata: {
+            namespace: string;
+          };
         };
         message: string;
       } = await response.json();
