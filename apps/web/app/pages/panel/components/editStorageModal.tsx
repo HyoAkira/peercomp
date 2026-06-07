@@ -78,7 +78,7 @@ export default function EditStorageModalComponent({
           ownerSignature: ownerSignature,
         };
         await node.storeWithSignature(
-          data.data.endpoint,
+          data.data.key,
           signedValueByOwner,
           keyPair.publicKey,
         );

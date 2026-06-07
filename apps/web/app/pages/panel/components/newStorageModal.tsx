@@ -42,8 +42,9 @@ export default function NewStorageModal() {
     if (!key || !val) return alert("Key ve Value alanları boş bırakılamaz.");
 
     try {
-      const targetNamespace =
-        await IdentityKey.calculateNamespace(keyPair.publicKey);
+      const targetNamespace = await IdentityKey.calculateNamespace(
+        keyPair.publicKey,
+      );
 
       const response = await fetch(`${api.baseURL}${api.apiURL}kv/create`, {
         method: "POST",
@@ -63,6 +64,7 @@ export default function NewStorageModal() {
 
       const data = await response.json();
       if (data.error) throw new Error(data.error);
+      console.log("K&V Kayıt oluşturuldu:", data.data);
       // data.data.type = "kv";
       if (node) {
         const owner = await IdentityKey.import(keyPair);
@@ -74,7 +76,7 @@ export default function NewStorageModal() {
           ownerSignature: ownerSignature,
         };
         await node.storeWithSignature(
-          data.data.endpoint,
+          data.data.key,
           signedValueByOwner,
           keyPair.publicKey,
         );

@@ -2,6 +2,7 @@
 import { validateP2PWriteRequest } from "@peercomp/encryption/utils";
 import Peer from "peerjs";
 import { FunctionDatabase, KvDatabase } from "../dexie/dexie";
+import LogClass from "./classLogger";
 
 const K = 20; // k-bucket boyutu
 const ALPHA = 3; // paralel sorgu sayısı
@@ -102,6 +103,7 @@ class NodeMap extends Map {
   async setAsync(key, value) {
     // Persist to Dexie asynchronously
     try {
+      console.log(`[Kademlia] Storing key: ${key}`, "value:", value);
       const keyToHash = value.method
         ? `${value.metadata.namespace}:${value.type}:${value.method}:${key}`
         : `${value.metadata.namespace}:${value.type}:${key}`;
@@ -302,6 +304,7 @@ export class KademliaNode {
     // key: "profile/avatar" veya "settings/theme" gibi bir şey olabilir
     const hashedKey = await hashKey(key);
     const nearest = this._findClosestLocal(hashedKey, K);
+
     const promises = nearest.map((node) =>
       this._sendRPC(node.id, {
         type: "STORE_WITH_SIGNATURE",
@@ -817,14 +820,14 @@ export class KademliaNode {
         );
         if (check) {
           console.log("message:", msg);
-          await this.storage.setAsync(msg.key, msg.value);
+          await this.storage.setAsync(msg.key, payload);
           result = {
             code: 200,
             message: "Stored",
             error: false,
             data: { stored: true },
           };
-          console.log(`[Kademlia] Değer depolandı: ${msg.key} -> ${msg.value}`);
+          console.log(`[Kademlia] Değer depolandı: ${msg.key} -> ${payload}`);
         } else {
           console.warn(
             `[Kademlia] STORE-SIGNED isteği doğrulama başarısız. Namespace: ${targetNamespace}, Key: ${actualKey}`,
