@@ -22,7 +22,8 @@
     "uuid": "^14.0.0",
     "ws": "^8.20.1",
     "@peercomp/encryption": "../../packages/encryption",
-    "@peercomp/models": "../../packages/models"
+    "@peercomp/models": "../../packages/models",
+    "@peercomp/worker": "../../packages/worker"
   },
   "devDependencies": {
     "@types/express": "^5.0.6",

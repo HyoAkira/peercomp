@@ -198,7 +198,7 @@ class NodeMap extends Map {
     try {
       const hashedKey = await hashKey(key);
       super.delete(hashedKey);
-      const type = key.split(":")[0];
+      const type = key.split(":")[1]; // "function" veya "kv" bekliyoruz
       console.log(
         `Deleting key from Dexie: ${key} (hashed: ${hashedKey}, type: ${type})`,
       );

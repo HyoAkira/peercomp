@@ -23,6 +23,9 @@ importers:
       '@peercomp/models':
         specifier: ../../packages/models
         version: link:../../packages/models
+      '@peercomp/worker':
+        specifier: ../../packages/worker
+        version: link:../../packages/worker
       dotenv:
         specifier: ^17.4.2
         version: 17.4.2
@@ -139,6 +142,9 @@ importers:
       '@peercomp/encryption':
         specifier: workspace:*
         version: link:../../packages/encryption
+      '@peercomp/worker':
+        specifier: workspace:*
+        version: link:../../packages/worker
       '@react-router/node':
         specifier: 7.14.0
         version: 7.14.0(react-router@7.14.0(react-dom@19.2.5(react@19.2.5))(react@19.2.5))(typescript@5.9.3)
@@ -226,6 +232,8 @@ importers:
       typescript:
         specifier: ^5.0.0
         version: 5.9.3
+
+  packages/worker: {}
 
 packages:
 

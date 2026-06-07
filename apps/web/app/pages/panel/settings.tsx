@@ -1,6 +1,9 @@
 import { api } from "@peercomp/config";
+import {
+  IdentityKey,
+  type SerializedIdentityKey,
+} from "@peercomp/encryption/utils";
 import { useEffect, useRef, useState } from "react";
-import { IdentityKey, type SerializedIdentityKey } from "@peercomp/encryption/utils";
 import { useAlertMsg, useIdentityKey, useToken } from "~/lib/store";
 import SettingsKeyPairCard from "./components/settingsKeyPairCard";
 import SettingsPasswordCard from "./components/settingsPasswordCard";
@@ -92,7 +95,12 @@ export default function SettingsPage() {
       try {
         const response = await fetch(url, options);
         const data = await response.json();
-        if (response.ok && data.data && data.data.publicKey && data.data.privateKey) {
+        if (
+          response.ok &&
+          data.data &&
+          data.data.publicKey &&
+          data.data.privateKey
+        ) {
           setKeyPair(data.data as SerializedIdentityKey);
         }
       } catch (error) {
@@ -201,7 +209,7 @@ export default function SettingsPage() {
       const owner = await IdentityKey.generate();
       const exported = await owner.export();
       setKeyPair(exported);
-      
+
       // Persist to backend
       const url = `${api.baseURL}${api.apiURL}/users/update-keypair`;
       const options = {
@@ -212,7 +220,7 @@ export default function SettingsPage() {
         },
         body: JSON.stringify(exported),
       };
-      
+
       try {
         const response = await fetch(url, options);
         const data = await response.json();
@@ -222,7 +230,7 @@ export default function SettingsPage() {
       } catch (backendError) {
         console.error("Backend keypair sync failed:", backendError);
       }
-      
+
       showAlert("Anahtar çifti başarıyla oluşturuldu.");
     } catch (error) {
       console.error(error);
@@ -259,9 +267,10 @@ export default function SettingsPage() {
     const file = event.target.files?.[0];
     if (!file) return;
     if (keyPair) {
-      showAlert("Zaten bir anahtar çifti var. Önce mevcut çifti silin.");
-      event.target.value = "";
-      return;
+      setKeyPair(null);
+      // showAlert("Zaten bir anahtar çifti var. Önce mevcut çifti silin.");
+      // event.target.value = "";
+      // return;
     }
     const reader = new FileReader();
     reader.onload = async (e) => {
@@ -278,7 +287,7 @@ export default function SettingsPage() {
         }
         const uploadedKeypair = parsed as SerializedIdentityKey;
         setKeyPair(uploadedKeypair);
-        
+
         // Persist to backend
         const url = `${api.baseURL}${api.apiURL}/users/update-keypair`;
         const options = {
@@ -289,17 +298,20 @@ export default function SettingsPage() {
           },
           body: JSON.stringify(uploadedKeypair),
         };
-        
+
         try {
           const response = await fetch(url, options);
           const data = await response.json();
           if (!response.ok || data.error) {
-            console.error("Failed to persist keypair to backend:", data.message);
+            console.error(
+              "Failed to persist keypair to backend:",
+              data.message,
+            );
           }
         } catch (backendError) {
           console.error("Backend keypair sync failed:", backendError);
         }
-        
+
         showAlert("Anahtar çifti başarıyla yüklendi.");
       } catch (error) {
         console.error(error);

@@ -10,7 +10,7 @@ export default function DeleteModalComponent({
   const token = useToken((state) => state.token);
   const setFunctions = useFunctions((state) => state.setFunctions);
   const functions = useFunctions((state) => state.functions);
-  async function handleDelete() { 
+  async function handleDelete() {
     const url = `${api.baseURL}${api.apiURL}functions/${functionId}`;
     const options = {
       method: "DELETE",
@@ -25,7 +25,12 @@ export default function DeleteModalComponent({
       if (!data.error) {
         setFunctions(functions.filter((func) => func._id !== functionId));
         if (node) {
-          await node.delete(`${data.data.type}:${data.data.method}:${data.data.endpoint}`); // Peer'ten de sil
+          const payload = data.data;
+
+          const keyToHash = payload.method
+            ? `${payload.metadata.namespace}:${payload.type}:${payload.method}:${payload.endpoint}`
+            : `${payload.metadata.namespace}:${payload.type}:${payload.key}`;
+          await node.delete(keyToHash); // Peer'ten de sil
         }
       }
     } catch (error) {
