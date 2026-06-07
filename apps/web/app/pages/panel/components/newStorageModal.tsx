@@ -1,6 +1,13 @@
 import { api } from "@peercomp/config";
+import { bufferToBase64, IdentityKey } from "@peercomp/encryption/utils";
 import { useRef } from "react";
-import { useKv, usePeerNode, useToken } from "~/lib/store";
+import {
+  useAlertMsg,
+  useIdentityKey,
+  useKv,
+  usePeerNode,
+  useToken,
+} from "~/lib/store";
 export default function NewStorageModal() {
   const token = useToken((state) => state.token);
   const variableKey = useRef<HTMLInputElement>(null);
@@ -9,22 +16,35 @@ export default function NewStorageModal() {
   const kv = useKv((state) => state.kv);
   const setKv = useKv((state) => state.setKv);
   const toggle = useRef<HTMLInputElement>(null);
+  const keyPair = useIdentityKey((state) => state.keyPair);
   const node = usePeerNode((state) => state.peerNode);
+  const setAlertMsg = useAlertMsg((state) => state.setAlertMsg);
+
   function JSONSanitizeCode(code) {
-   return JSON.stringify(JSON.parse(code));
+    return JSON.stringify(JSON.parse(code));
   }
 
   async function handleSave(
-    event: MouseEvent<HTMLButtonElement, MouseEvent>
+    event: MouseEvent<HTMLButtonElement, MouseEvent>,
   ): void {
     event.preventDefault();
     const key = variableKey.current?.value;
     const val = value.current?.value;
     const check = isEncrypted.current?.checked;
-
+    if (!keyPair) {
+      toggle.current?.click();
+      setAlertMsg("Lütfen önce bir anahtar çifti oluşturun.");
+      setTimeout(() => {
+        setAlertMsg("");
+      }, 3000);
+      return;
+    }
     if (!key || !val) return alert("Key ve Value alanları boş bırakılamaz.");
 
     try {
+      const targetNamespace =
+        await IdentityKey.calculateNamespace(keyPair.publicKey);
+
       const response = await fetch(`${api.baseURL}${api.apiURL}kv/create`, {
         method: "POST",
         headers: {
@@ -35,14 +55,29 @@ export default function NewStorageModal() {
           key,
           value: JSONSanitizeCode(val),
           isEncrypted: check,
+          metadata: {
+            namespace: targetNamespace,
+          },
         }),
       });
 
       const data = await response.json();
       if (data.error) throw new Error(data.error);
-      data.data.type = "kv";
+      // data.data.type = "kv";
       if (node) {
-        await node.store(key, data.data);
+        const owner = await IdentityKey.import(keyPair);
+        const ownerPayload = JSON.stringify(data.data);
+        const ownerSigBuf = await owner.sign(ownerPayload);
+        const ownerSignature = bufferToBase64(ownerSigBuf);
+        const signedValueByOwner = {
+          payload: ownerPayload,
+          ownerSignature: ownerSignature,
+        };
+        await node.storeWithSignature(
+          data.data.endpoint,
+          signedValueByOwner,
+          keyPair.publicKey,
+        );
       }
       setKv([...kv, data.data]);
       toggle.current?.click();

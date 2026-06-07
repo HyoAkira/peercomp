@@ -11,6 +11,7 @@
  * 4. DataChannel send: dc.send(bp.pack(data)) — arraybuffer olarak gönderilmeli.
  */
 
+import { IdentityKey } from "@peercomp/encryption/utils";
 import * as nodeDc from "node-datachannel";
 import * as crypto from "node:crypto";
 import { Worker } from "node:worker_threads";
@@ -80,7 +81,7 @@ export class GatewayNode {
 
   constructor(
     signallingURL = "ws://127.0.0.1:9000/peerjs/peerjs?token=peerjs&key=peerjs",
-    peersEndpoint = "http://localhost:8000/peers"
+    peersEndpoint = "http://localhost:8000/peers",
   ) {
     this.id =
       "67617465776179736572766572676174657761797365727665726e6f64653031";
@@ -114,7 +115,7 @@ export class GatewayNode {
             const msg = JSON.parse(text);
             if (msg.type === "OPEN") {
               console.log(
-                "[GATEWAY] Signalling server kaydı onaylandı (OPEN)."
+                "[GATEWAY] Signalling server kaydı onaylandı (OPEN).",
               );
               resolved = true;
               resolve();
@@ -129,7 +130,7 @@ export class GatewayNode {
       setTimeout(() => {
         if (!resolved) {
           console.warn(
-            "[GATEWAY] OPEN mesajı gelmedi, yine de devam ediliyor."
+            "[GATEWAY] OPEN mesajı gelmedi, yine de devam ediliyor.",
           );
           resolved = true;
           resolve();
@@ -166,7 +167,7 @@ export class GatewayNode {
     }
     console.log(
       `[GATEWAY] Bootstrap: ${peers.length} peer bulundu:`,
-      peers.map((p) => p.slice(0, 8))
+      peers.map((p) => p.slice(0, 8)),
     );
     for (const peerId of peers.slice(0, this.ALPHA)) {
       this._initiateConnection(peerId);
@@ -177,7 +178,7 @@ export class GatewayNode {
       const unconnected = peers.filter((id) => !this.activeChannels.has(id));
       if (unconnected.length > 0) {
         console.log(
-          `[GATEWAY] Retry bootstrap: ${unconnected.length} peer hâlâ bağlı değil, yeniden deneniyor.`
+          `[GATEWAY] Retry bootstrap: ${unconnected.length} peer hâlâ bağlı değil, yeniden deneniyor.`,
         );
         for (const peerId of unconnected) {
           this.peerConnections.delete(peerId); // eski yarım bağlantıyı temizle
@@ -196,8 +197,8 @@ export class GatewayNode {
     console.log(
       `[GATEWAY] → Bağlantı başlatılıyor: ${peerId.slice(
         0,
-        8
-      )}.. (connId: ${connectionId})`
+        8,
+      )}.. (connId: ${connectionId})`,
     );
     const pc = new nodeDc.PeerConnection(this.id, {
       iceServers: this.iceServers,
@@ -209,7 +210,7 @@ export class GatewayNode {
 
     pc.onLocalDescription((sdp, type) => {
       console.log(
-        `[GATEWAY] onLocalDescription: type=${type} peer=${peerId.slice(0, 8)}`
+        `[GATEWAY] onLocalDescription: type=${type} peer=${peerId.slice(0, 8)}`,
       );
       if (type !== "offer") return;
       /**
@@ -233,11 +234,11 @@ export class GatewayNode {
       };
 
       this.ws.send(
-        JSON.stringify({ type: "OFFER", src: this.id, dst: peerId, payload })
+        JSON.stringify({ type: "OFFER", src: this.id, dst: peerId, payload }),
       );
       console.log(
         `[GATEWAY] OFFER gönderildi → ${peerId.slice(0, 8)}.. payload:`,
-        JSON.stringify(payload).slice(0, 200)
+        JSON.stringify(payload).slice(0, 200),
       );
     });
 
@@ -252,7 +253,7 @@ export class GatewayNode {
             type: "data",
             connectionId,
           },
-        })
+        }),
       );
     });
   }
@@ -307,7 +308,7 @@ export class GatewayNode {
               type: "data",
               connectionId,
             },
-          })
+          }),
         );
         console.log(`[GATEWAY] ANSWER gönderildi → ${peerId}`);
       });
@@ -323,7 +324,7 @@ export class GatewayNode {
               type: "data",
               connectionId,
             },
-          })
+          }),
         );
       });
 
@@ -344,7 +345,7 @@ export class GatewayNode {
       if (!pc || !payload?.candidate) return;
       pc.addRemoteCandidate(
         payload.candidate.candidate,
-        payload.candidate.sdpMid
+        payload.candidate.sdpMid,
       );
       return;
     }
@@ -393,14 +394,14 @@ export class GatewayNode {
         "| tip:",
         typeof rawMsg,
         "| uzunluk:",
-        (rawMsg as any)?.byteLength ?? (rawMsg as any)?.length
+        (rawMsg as any)?.byteLength ?? (rawMsg as any)?.length,
       );
       return;
     }
 
     console.log(
       `[GATEWAY] ← Mesaj (${peerId.slice(0, 8)}..):`,
-      JSON.stringify(parsed).slice(0, 120)
+      JSON.stringify(parsed).slice(0, 120),
     );
     this._handleMsg(peerId, parsed);
   }
@@ -447,8 +448,8 @@ export class GatewayNode {
       case "FIND_VALUE": {
         // const value = await this.storage.getAsync(msg.key);
         const value = undefined;
-        if (value !== undefined)
-          return { code: 200, message: "OK", error: false, data: { value } };
+        // if (value !== undefined)
+        //   return { code: 200, message: "OK", error: false, data: { value } };
         return {
           code: 200,
           message: "OK",
@@ -482,7 +483,7 @@ export class GatewayNode {
         try {
           const output = await this._executeInWorker(
             funcData.code,
-            msg.args || {}
+            msg.args || {},
           );
           return { code: 200, message: "OK", error: false, data: output };
         } catch (e: any) {
@@ -511,13 +512,13 @@ export class GatewayNode {
     const dc = this.activeChannels.get(peerId);
     if (!dc) {
       console.warn(
-        `[GATEWAY] sendToChannel: ${peerId.slice(0, 8)}.. için aktif kanal yok`
+        `[GATEWAY] sendToChannel: ${peerId.slice(0, 8)}.. için aktif kanal yok`,
       );
       return;
     }
     console.log(
       `[GATEWAY] → Mesaj (${peerId.slice(0, 8)}..):`,
-      JSON.stringify(data).slice(0, 120)
+      JSON.stringify(data).slice(0, 120),
     );
     const packed = pack(data) as ArrayBuffer;
     dc.sendMessageBinary(Buffer.from(packed));
@@ -620,15 +621,21 @@ export class GatewayNode {
   async call_function(
     key: string,
     args: any = {},
-    method: string
+    method: string,
+    signature: string,
   ): Promise<any> {
     try {
-      key = `function:${method}:${key}`;
+      if (!signature) {
+        throw new Error("Signature is required for FUNCTION-CALL");
+      }
+      const targetNamespace = await IdentityKey.calculateNamespace(signature);
+
+      key = `${targetNamespace}:function:${method}:${key}`;
       const nearest = this._findClosest(hashKey(key), this.K); // XOR mesafesine göre en yakınlar sıralı
       if (nearest.length === 0) throw new Error("Aktif peer yok.");
 
       const CHUNK_SIZE = 3; // Her adımda kaçar kişi denenecek?
-      
+
       // En yakın peer listesini CHUNK_SIZE (3'erli) parçalara bölüyoruz
       // Örn: [1,2,3,4,5,6,7] -> [[1,2,3], [4,5,6], [7]]
       const groups: string[][] = [];
@@ -647,31 +654,29 @@ export class GatewayNode {
                   if (!res || res.error)
                     throw new Error(res?.message ?? "RPC failed");
                   return res;
-                }
-              )
-            )
+                },
+              ),
+            ),
           );
 
           // Eğer bu gruptan BİRİ BİLE başarılı döndüyse, fonksiyondan veriyi çıkarıyoruz.
           // Döngü burada kırılır (break) ve sonraki gruplara istek ATILMAZ.
           return result.data;
-
         } catch (groupError) {
           // Bu gruptaki 3 kişinin HEPSİ patlarsa Promise.any buraya düşer.
           // console.warn(`Bu gruptaki peer'lar yanıt vermedi, sonraki 3'lü deneniyor...`);
           // Döngü devam eder ve bir sonraki 'currentGroup' denenir.
-          continue; 
+          continue;
         }
       }
 
       // Eğer döngü bittiyse ve return yapılamadıysa, ağdaki tüm gruplar denenmiş ve patlamış demektir.
       throw new Error("Denenen tüm komşu peer grupları başarısız oldu.");
-
     } catch (error) {
       throw new Error(
         `FUNCTION-CALL hatası: ${
           error instanceof Error ? error.message : error
-        }`
+        }`,
       );
     }
   }

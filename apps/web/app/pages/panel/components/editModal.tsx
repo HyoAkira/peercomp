@@ -1,8 +1,15 @@
 import { api } from "@peercomp/config";
-import { useRef, useState } from "react";
-import { useAlertMsg, useFunctions, usePeerNode, useToken } from "~/lib/store";
+import { bufferToBase64, IdentityKey } from "@peercomp/encryption/utils";
 import CodeEditor from "@uiw/react-textarea-code-editor"; // <-- Paket eklendi
-import {minify} from "terser"
+import { useRef, useState } from "react";
+import { minify } from "terser";
+import {
+  useAlertMsg,
+  useFunctions,
+  useIdentityKey,
+  usePeerNode,
+  useToken,
+} from "~/lib/store";
 type FunctionMethod = "GET" | "POST";
 
 export default function EditModalComponent({
@@ -19,6 +26,7 @@ export default function EditModalComponent({
   code: string;
 }>) {
   const [inputName, setName] = useState(name);
+  const keyPair = useIdentityKey((state) => state.keyPair);
   const [inputEndpoint, setEndpoint] = useState(endpoint);
   const token = useToken((state) => state.token);
   const setAlertMsg = useAlertMsg((state) => state.setAlertMsg);
@@ -27,16 +35,23 @@ export default function EditModalComponent({
   const setFunctions = useFunctions((state) => state.setFunctions);
   const node = usePeerNode((state) => state.peerNode);
   const [inputMethod, setMethod] = useState<FunctionMethod>(
-    method as FunctionMethod
+    method as FunctionMethod,
   );
 
   const [inputCode, setCode] = useState(code);
 
   async function handleSave(
-    event: React.MouseEvent<HTMLButtonElement, MouseEvent>
+    event: React.MouseEvent<HTMLButtonElement, MouseEvent>,
   ): Promise<void> {
     event.preventDefault();
-
+    if (!keyPair) {
+      toggle.current?.click();
+      setAlertMsg("Lütfen önce bir anahtar çifti oluşturun.");
+      setTimeout(() => {
+        setAlertMsg("");
+      }, 3000);
+      return;
+    }
     const userInput = {
       name: inputName,
       endpoint: inputEndpoint,
@@ -50,18 +65,18 @@ export default function EditModalComponent({
       // 1. Sadece JS kodunun olduğu metni Terser ile minify ediyoruz
       // Terser client-side'da nesne döndürdüğü için .code alanını almalıyız
       const minifiedResult = await minify(inputCode, {
-        mangle: false, 
+        mangle: false,
         parse: {
           bare_returns: true, // Return ifadelerinin etrafına süslü parantez eklemeden bırakır
         },
         compress: {
-          dead_code: true, 
-          drop_debugger: true, 
-          module: true
+          dead_code: true,
+          drop_debugger: true,
+          module: true,
         },
         format: {
-          comments: false // Yorum satırlarını da silsin
-        }
+          comments: false, // Yorum satırlarını da silsin
+        },
       });
 
       if (minifiedResult && minifiedResult.code) {
@@ -82,19 +97,33 @@ export default function EditModalComponent({
             Authorization: `Bearer ${token}`,
           },
           body: JSON.stringify(userInput),
-        }
+        },
       );
 
       const data = await response.json();
       if (data.error) throw new Error(data.error);
-      setFunctions(
-        functions.map((func) => (func._id === functionId ? data.data : func))
-      );
 
       if (node) {
         console.log("Updated function:", data.data);
-        await node.store(data.data.endpoint, data.data); // Peer'e de kaydet
+        // await node.store(data.data.endpoint, data.data); // Peer'e de kaydet
+        const owner = await IdentityKey.import(keyPair);
+        const ownerPayload = JSON.stringify(data.data);
+        const ownerSigBuf = await owner.sign(ownerPayload);
+        const ownerSignature = bufferToBase64(ownerSigBuf);
+        const signedValueByOwner = {
+          payload: ownerPayload,
+          ownerSignature: ownerSignature,
+        };
+        await node.storeWithSignature(
+          data.data.endpoint,
+          signedValueByOwner,
+          keyPair.publicKey,
+        );
       }
+      setFunctions(
+        functions.map((func) => (func._id === functionId ? data.data : func)),
+      );
+
       toggle.current?.click();
       setAlertMsg("Fonksiyon başarıyla güncellendi.");
       setTimeout(() => setAlertMsg(""), 3000);
@@ -176,7 +205,9 @@ export default function EditModalComponent({
             {/* CODE EDITOR */}
             <div className="flex flex-col bg-base-100">
               <div className="border-b border-base-300 bg-base-200/40 px-4 py-2 flex items-center justify-between">
-                <span className="text-sm font-medium text-base-content/70">index.js</span>
+                <span className="text-sm font-medium text-base-content/70">
+                  index.js
+                </span>
                 <span className="badge badge-sm badge-neutral">javascript</span>
               </div>
 
@@ -190,7 +221,8 @@ export default function EditModalComponent({
                   padding={20}
                   style={{
                     fontSize: 14,
-                    fontFamily: 'ui-monospace, SFMono-Regular, SF Mono, Menlo, Consolas, Liberation Mono, monospace',
+                    fontFamily:
+                      "ui-monospace, SFMono-Regular, SF Mono, Menlo, Consolas, Liberation Mono, monospace",
                     minHeight: "100%",
                   }}
                   data-color-mode="dark" // Kullandığın temaya göre 'light' olarak da değiştirebilirsin

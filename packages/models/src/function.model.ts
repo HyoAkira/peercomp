@@ -7,9 +7,16 @@ const functionSchema = new Schema({
   code: { type: String, required: true },
   author: { type: String, ref: "User", required: true },
   type: { type: String, default: "function" },
-  metadata: { type: Schema.Types.Mixed, default: {} },
+  metadata: {
+    namespace: { type: String, required: true },
+  },
 });
-functionSchema.index({ endpoint: 1, method: 1 }, { unique: true });
+
+// DÜZELTME: İç içe alanlar için nokta notasyonu (dot notation) kullanılmalı
+functionSchema.index(
+  { endpoint: 1, method: 1, "metadata.namespace": 1 }, 
+  { unique: true }
+);
 
 const FunctionModel = model("Function", functionSchema);
 export default FunctionModel;

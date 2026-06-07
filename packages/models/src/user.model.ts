@@ -15,7 +15,12 @@ const userSchema = new Schema({
   email: { type: String, unique: true, required: true },
   password: { type: String, required: true },
   role: { type: String, enum: ["admin", "user"], default: "user" },
+  keypair: {
+    publicKey: { type: String, required: false },
+    privateKey: { type: String, required: false },
+  },
 });
 
 const User = model("User", userSchema);
+
 export default User;

@@ -1,5 +1,5 @@
+import { KVModel } from "@peercomp/models";
 import { Schema, Types } from "mongoose";
-import KVModel from "../models/kv.model";
 
 /**
  * KV Storage System

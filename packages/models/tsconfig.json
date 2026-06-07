@@ -1,0 +1,17 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",                          // Çıktı kodunun modernlik seviyesi
+    "module": "NodeNext",                        // Modern Node.js modül sistemi çözünürlüğü
+    "moduleResolution": "NodeNext",
+    "declaration": true,                         // .d.ts tip tanımlama dosyalarını oluştur (ÇOK ÖNEMLİ)
+    "declarationMap": true,                      // Kodlar arası geçişte (Go to Definition) kaynak koda yönlendirir
+    "outDir": "./dist",                          // Derlenen dosyaların gideceği klasör
+    "rootDir": "./src",                          // Kaynak kodlarının olduğu klasör
+    "strict": true,                              // Sıkı tip kontrolü
+    "esModuleInterop": true,                     // CommonJS ve ES Modülleri arasında uyum sağlar
+    "skipLibCheck": true,                        // Bağımlılıklardaki tip hatalarını görmezden gelir
+    "forceConsistentCasingInFileNames": true
+  },
+  "include": ["src/**/*"],                       // Sadece src altındakileri derle
+  "exclude": ["node_modules", "dist"]            // Bunları dahil etme
+}

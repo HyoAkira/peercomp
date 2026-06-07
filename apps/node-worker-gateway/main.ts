@@ -1,8 +1,8 @@
+import { IdentityKey } from "@peercomp/encryption/utils";
+import { connectDB, FunctionModel } from "@peercomp/models";
 import dotenv from "dotenv";
 import express, { Request, Response } from "express";
-import mongoose from "mongoose";
 import { Worker } from "worker_threads";
-import FunctionModel from "./models/functions.model";
 import { GatewayNode } from "./node";
 
 dotenv.config();
@@ -31,7 +31,8 @@ app.all("/", async (req: Request, res: Response) => {
     const key = req.subdomain;
     const args = req.body?.args || [];
     const method = req.method;
-    const result = await handleRequest(key, args, method);
+    const signature = req.headers["x-signature"] as string | undefined;
+    const result = await handleRequest(key, args, method, signature);
 
     if (!result) {
       return res.status(404).json({
@@ -58,7 +59,7 @@ async function bootstrap() {
       process.env.MONGODB_URI ||
       "mongodb://[REDACTED_LOCAL_DEV_USER]:[REDACTED_LOCAL_DEV_PASSWORD]@localhost:27017/peercomp?authSource=admin";
 
-    await mongoose.connect(mongoUri);
+    await connectDB(mongoUri);
     console.log("MongoDB connected");
 
     await node.start();
@@ -75,20 +76,32 @@ async function bootstrap() {
 
 bootstrap();
 
-async function handleRequest(key: string, args: string[], method: string) {
+async function handleRequest(
+  key: string,
+  args: string[],
+  method: string,
+  signature: string,
+) {
   try {
-    const result = await node.call_function(key, args, method);
+    const result = await node.call_function(key, args, method, signature);
     return {
       code: 200,
       message: "OK",
       error: false,
       data: result,
     };
-  } catch {
+  } catch(e) {
+    console.log(`Error calling function ${key} via node:`, e);
     try {
+      if (!signature) {
+        throw new Error("Signature is required for FUNCTION-CALL");
+      }
+      const targetNamespace = await IdentityKey.calculateNamespace(signature);
+
       const funcData = await FunctionModel.findOne({
         endpoint: key,
         method: method,
+        "metadata.namespace": targetNamespace,
       });
 
       if (!funcData) {

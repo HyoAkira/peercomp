@@ -9,6 +9,7 @@
   },
   "keywords": [],
   "author": "",
+
   "license": "ISC",
   "dependencies": {
     "dotenv": "^17.4.2",
@@ -20,7 +21,8 @@
     "ses": "^2.1.0",
     "uuid": "^14.0.0",
     "ws": "^8.20.1",
-    "@peercomp/encryption": "../../packages/encryption"
+    "@peercomp/encryption": "../../packages/encryption",
+    "@peercomp/models": "../../packages/models"
   },
   "devDependencies": {
     "@types/express": "^5.0.6",

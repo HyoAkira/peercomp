@@ -21,7 +21,8 @@
     "jsonwebtoken": "^9.0.3",
     "mongoose": "^9.6.2",
     "tsx": "^4.21.0",
-    "zod": "^4.4.3"
+    "zod": "^4.4.3",
+    "@peercomp/models": "workspace:*"
   },
   "devDependencies": {
     "@types/cors": "^2.8.19",

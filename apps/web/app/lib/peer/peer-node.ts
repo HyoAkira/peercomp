@@ -1,4 +1,5 @@
 // kademlia.js
+import { validateP2PWriteRequest } from "@peercomp/encryption/utils";
 import Peer from "peerjs";
 import { FunctionDatabase, KvDatabase } from "../dexie/dexie";
 
@@ -101,7 +102,10 @@ class NodeMap extends Map {
   async setAsync(key, value) {
     // Persist to Dexie asynchronously
     try {
-      const keyToHash = value.method ? `${value.type}:${value.method}:${key}` : `${value.type}:${key}`;
+      const keyToHash = value.method
+        ? `${value.metadata.namespace}:${value.type}:${value.method}:${key}`
+        : `${value.metadata.namespace}:${value.type}:${key}`;
+
       const hashedKey = await hashKey(keyToHash);
       // Always store in in-memory Map immediately with the raw key
       super.set(hashedKey, value);
@@ -117,7 +121,13 @@ class NodeMap extends Map {
         }
         case "kv": {
           // For generic KV pairs, also persist with a generic type
-          console.log("Storing KV in Dexie:", key, value, "hashedKey:", keyToHash);
+          console.log(
+            "Storing KV in Dexie:",
+            key,
+            value,
+            "hashedKey:",
+            keyToHash,
+          );
           await KvDatabase.contents.put({
             id: hashedKey,
             data: value,
@@ -284,6 +294,43 @@ export class KademliaNode {
     );
     await Promise.allSettled(promises);
     await this.storage.setAsync(key, value); // Kendinde de tut
+  }
+
+  async storeWithSignature(key, value, signature) {
+    // Örnek: "ahmet:type:profile/avatar" -> namespace: "ahmet"
+    // type: "function" veya "kv" olabilir
+    // key: "profile/avatar" veya "settings/theme" gibi bir şey olabilir
+    const hashedKey = await hashKey(key);
+    const nearest = this._findClosestLocal(hashedKey, K);
+    const promises = nearest.map((node) =>
+      this._sendRPC(node.id, {
+        type: "STORE_WITH_SIGNATURE",
+        key,
+        value,
+        signature,
+      }),
+    );
+    await Promise.allSettled(promises);
+    const payload = JSON.parse(value.payload);
+    const targetNamespace = payload.metadata.namespace;
+    const actualKey = payload.method
+      ? `${payload.type}:${payload.method}:${key}`
+      : `${payload.type}:${key}`;
+
+    const check = await validateP2PWriteRequest(
+      targetNamespace,
+      actualKey, // Key fark etmez, owner her yere yazabilir
+      value,
+      signature,
+    );
+    if (!check) {
+      console.warn(
+        `STORE_WITH_SIGNATURE rejected for key ${key} due to failed validation.`,
+      );
+      return;
+    }
+
+    await this.storage.setAsync(key, payload); // Kendinde de tut
   }
   async delete(key) {
     const hashedKey = await hashKey(key);
@@ -527,7 +574,8 @@ export class KademliaNode {
       | { type: "FIND_VALUE"; key: any }
       | { type: "STORE"; key: any; value: any }
       | { type: "FUNCTION-CALL"; key: any }
-      | { type: "DELETE"; key: any },
+      | { type: "DELETE"; key: any }
+      | { type: "STORE_WITH_SIGNATURE"; key: any; value: any; signature: any },
   ): Promise<RPCResult | null> {
     const conn = await this._connect(peerId);
     if (!conn) return null;
@@ -638,7 +686,7 @@ export class KademliaNode {
         break;
       }
 
-      case "FUNCTION-CALL":
+      case "FUNCTION-CALL": {
         // find value ile fonksiyonun kendisi gelmeli, onu çalıştırıp sonucu döndürmeliyiz
         const funcData = await this.findValue(msg.key);
         console.log(
@@ -752,6 +800,44 @@ export class KademliaNode {
         // Buradan sonra mevcut kodundaki 'result' değişkenini kullanarak
         // Gateway'e veya isteği atan peer'a yanıt dönen lojiktir muhtemelen (break vb.)
         break;
+      }
+      case "STORE_WITH_SIGNATURE": {
+        const { key, value, signature } = msg;
+        const payload = JSON.parse(value.payload);
+        const targetNamespace = payload.metadata.namespace;
+        const actualKey = payload.method
+          ? `${payload.type}:${payload.method}:${key}`
+          : `${payload.type}:${key}`;
+
+        const check = await validateP2PWriteRequest(
+          targetNamespace,
+          actualKey, // Key fark etmez, owner her yere yazabilir
+          value,
+          signature,
+        );
+        if (check) {
+          console.log("message:", msg);
+          await this.storage.setAsync(msg.key, msg.value);
+          result = {
+            code: 200,
+            message: "Stored",
+            error: false,
+            data: { stored: true },
+          };
+          console.log(`[Kademlia] Değer depolandı: ${msg.key} -> ${msg.value}`);
+        } else {
+          console.warn(
+            `[Kademlia] STORE-SIGNED isteği doğrulama başarısız. Namespace: ${targetNamespace}, Key: ${actualKey}`,
+          );
+          result = {
+            code: 401,
+            message: "Unauthorized: Signature validation failed",
+            error: true,
+            data: null,
+          };
+        }
+        break;
+      }
     }
 
     conn.send({ reqId, result, from: this.id });

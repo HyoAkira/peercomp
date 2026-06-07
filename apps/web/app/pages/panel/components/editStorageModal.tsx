@@ -1,6 +1,13 @@
 import { api } from "@peercomp/config";
+import { bufferToBase64, IdentityKey } from "@peercomp/encryption/utils";
 import { useRef } from "react";
-import { useAlertMsg, useKv, useToken } from "~/lib/store";
+import {
+  useAlertMsg,
+  useIdentityKey,
+  useKv,
+  usePeerNode,
+  useToken,
+} from "~/lib/store";
 function JSONSanitizeCode(code) {
   return JSON.stringify(JSON.parse(code));
 }
@@ -30,11 +37,20 @@ export default function EditStorageModalComponent({
   const token = useToken((state) => state.token);
   const toggle = useRef<HTMLInputElement>(null);
   const setAlertMsg = useAlertMsg((state) => state.setAlertMsg);
-
+  const node = usePeerNode((state) => state.peerNode);
+  const keyPair = useIdentityKey((state) => state.keyPair);
   async function handleSave(
-    event: MouseEvent<HTMLButtonElement, MouseEvent>
+    event: MouseEvent<HTMLButtonElement, MouseEvent>,
   ): Promise<void> {
     event.preventDefault();
+    if (!keyPair) {
+      toggle.current?.click();
+      setAlertMsg("Lütfen önce bir anahtar çifti oluşturun.");
+      setTimeout(() => {
+        setAlertMsg("");
+      }, 3000);
+      return;
+    }
     const userInput = {
       key: keyInputRef.current?.value,
       value: JSONSanitizeCode(valueInputRef.current?.value),
@@ -52,6 +68,21 @@ export default function EditStorageModalComponent({
 
       const data = await response.json();
       if (data.error) throw new Error(data.error);
+      if (node) {
+        const owner = await IdentityKey.import(keyPair);
+        const ownerPayload = JSON.stringify(data.data);
+        const ownerSigBuf = await owner.sign(ownerPayload);
+        const ownerSignature = bufferToBase64(ownerSigBuf);
+        const signedValueByOwner = {
+          payload: ownerPayload,
+          ownerSignature: ownerSignature,
+        };
+        await node.storeWithSignature(
+          data.data.endpoint,
+          signedValueByOwner,
+          keyPair.publicKey,
+        );
+      }
       setKv(kv.map((item) => (item._id === kvId ? data.data : item)));
       toggle.current?.click();
       setAlertMsg("K&V kaydı başarıyla güncellendi.");

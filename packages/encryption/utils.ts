@@ -375,7 +375,6 @@ export async function validateP2PWriteRequest(
     console.warn("REJECTED: Namespace mismatch.");
     return false; 
   }
-
   // 2. ADIM: Owner doğrudan yazıyorsa
   if (signedValue.ownerSignature) {
     const isValidOwner = await IdentityKey.verifyWithSPKI(

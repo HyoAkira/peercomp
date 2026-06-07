@@ -1,8 +1,8 @@
 import { api } from "@peercomp/config";
+import { bufferToBase64, IdentityKey } from "@peercomp/encryption/utils";
 import CodeEditor from "@uiw/react-textarea-code-editor"; // <-- Paket eklendi
 import { useRef, useState } from "react";
 import { minify } from "terser";
-import { IdentityKey } from "@peercomp/encryption/utils";
 import {
   useAlertMsg,
   useFunctions,
@@ -77,6 +77,7 @@ export default function NewFuncModal({}: Readonly<{}>) {
         name: inputName,
         endpoint: inputEndpoint,
         method: inputMethod,
+        type: "function",
         code: finalCode,
         metadata: {
           namespace: targetNamespace,
@@ -102,8 +103,19 @@ export default function NewFuncModal({}: Readonly<{}>) {
       } = await response.json();
       if (!data.error) {
         if (node) {
-          data.data.type = "function";
-          await node.store(data.data.endpoint, data.data);
+          const owner = await IdentityKey.import(keyPair);
+          const ownerPayload = JSON.stringify(data.data);
+          const ownerSigBuf = await owner.sign(ownerPayload);
+          const ownerSignature = bufferToBase64(ownerSigBuf);
+          const signedValueByOwner = {
+            payload: ownerPayload,
+            ownerSignature: ownerSignature,
+          };
+          await node.storeWithSignature(
+            data.data.endpoint,
+            signedValueByOwner,
+            ownerPublicKey,
+          );
         }
         setFunctions([...functions, data.data]);
         toggle.current?.click();

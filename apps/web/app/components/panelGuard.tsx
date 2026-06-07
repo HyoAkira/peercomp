@@ -9,7 +9,6 @@ export default function PanelGuard() {
   useEffect(() => {
     if (!token) navigate("/login");
     const verify = async () => {
-      
       const url = `${api.baseURL}${api.apiURL}users/verify`;
       const options = {
         method: "GET",
@@ -18,6 +17,23 @@ export default function PanelGuard() {
       try {
         const response = await fetch(url, options);
         const data = await response.json();
+
+        (async () => {
+          const url = `${api.baseURL}${api.apiURL}users/me`;
+          const options = {
+            method: "GET",
+            headers: {
+              authorization: `Bearer ${token}`,
+            },
+          };
+
+          try {
+            const response = await fetch(url, options);
+            const data = await response.json();
+          } catch (error) {
+            navigate("/login");
+          }
+        })();
         // verify exp date
         if (data.exp < Date.now() / 1000) {
           navigate("/login");

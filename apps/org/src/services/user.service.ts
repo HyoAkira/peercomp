@@ -1,7 +1,7 @@
+import { User } from "@peercomp/models";
 import { compare, genSalt, hash } from "bcrypt";
 import jwt from "jsonwebtoken";
 import * as z from "zod";
-import User from "../models/user.model";
 class UserService {
   async createUser({
     name,
@@ -26,7 +26,7 @@ class UserService {
         .min(8, "Şifre en az 8 karakter olmalı")
         .max(128, "Şifre en fazla 128 karakter olmalı")
         .regex(
-          /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/,
+          /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}$/,
           "Şifre en az bir büyük harf, bir küçük harf, bir sayı ve bir özel karakter içermelidir",
         ),
     });
@@ -142,7 +142,7 @@ class UserService {
       .min(8, "Şifre en az 8 karakter olmalı")
       .max(128, "Şifre en fazla 128 karakter olmalı")
       .regex(
-        /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/,
+        /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}$/,
         "Şifre en az bir büyük harf, bir küçük harf, bir sayı ve bir özel karakter içermelidir",
       );
     try {
@@ -207,8 +207,11 @@ class UserService {
     }
   }
 
-  async updateProfile(userId, profileData: { name?: string; surname?: string; email?: string }) {
-        const userSchema = z.object({
+  async updateProfile(
+    userId,
+    profileData: { name?: string; surname?: string; email?: string },
+  ) {
+    const userSchema = z.object({
       name: z.string().min(1, "İsim gerekli"),
       surname: z.string().min(1, "Soyisim gerekli"),
       username: z.string().min(1, "Kullanıcı adı gerekli"),
@@ -218,7 +221,7 @@ class UserService {
         .min(8, "Şifre en az 8 karakter olmalı")
         .max(128, "Şifre en fazla 128 karakter olmalı")
         .regex(
-          /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/,
+          /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}$/,
           "Şifre en az bir büyük harf, bir küçük harf, bir sayı ve bir özel karakter içermelidir",
         ),
     });
@@ -254,7 +257,10 @@ class UserService {
     };
   }
 
-  async updateKeypair(userId: string, keypair: { publicKey: string; privateKey: string }) {
+  async updateKeypair(
+    userId: string,
+    keypair: { publicKey: string; privateKey: string },
+  ) {
     const user = await User.findById(userId);
     if (!user) {
       return {

@@ -1,4 +1,5 @@
-import FunctionModel from "../models/function.model";
+import { FunctionModel } from "@peercomp/models";
+
 
 export default class FunctionService {
   async createFunction({
@@ -22,7 +23,14 @@ export default class FunctionService {
     if (check?.error) {
       return check;
     }
-    const func = new FunctionModel({ name, endpoint, method, code, author, metadata });
+    const func = new FunctionModel({
+      name,
+      endpoint,
+      method,
+      code,
+      author,
+      metadata,
+    });
     await func.save();
     return {
       code: 201,
