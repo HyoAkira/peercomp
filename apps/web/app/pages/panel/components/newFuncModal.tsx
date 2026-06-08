@@ -1,5 +1,5 @@
 import { api } from "@peercomp/config";
-import { bufferToBase64, IdentityKey } from "@peercomp/encryption/utils";
+import { IdentityKey } from "@peercomp/encryption/utils";
 import CodeEditor from "@uiw/react-textarea-code-editor"; // <-- Paket eklendi
 import { useRef, useState } from "react";
 import { minify } from "terser";
@@ -66,7 +66,23 @@ export default function NewFuncModal({}: Readonly<{}>) {
     const ownerPublicKey = keyPair.publicKey;
     const targetNamespace =
       await IdentityKey.calculateNamespace(ownerPublicKey);
-
+    const functionIdentity = await IdentityKey.generate();
+    const functionIdentityExport = await functionIdentity.export();
+    if (node) {
+      const owner = await IdentityKey.import(keyPair);
+      const ownerPayload = JSON.stringify(data.data);
+      const ownerSigBuf = await owner.sign(ownerPayload);
+      const ownerSignature = bufferToBase64(ownerSigBuf);
+      const signedValueByOwner = {
+        payload: ownerPayload,
+        ownerSignature: ownerSignature,
+      };
+      await node.storeWithSignature(
+        data.data.endpoint,
+        signedValueByOwner,
+        ownerPublicKey,
+      );
+    }
     const options = {
       method: "POST",
       headers: {
@@ -81,6 +97,10 @@ export default function NewFuncModal({}: Readonly<{}>) {
         code: finalCode,
         metadata: {
           namespace: targetNamespace,
+        },
+        kvPermission: {
+          enabled: true,
+          functionIdentity: functionIdentityExport,
         },
       }),
     };
@@ -102,21 +122,6 @@ export default function NewFuncModal({}: Readonly<{}>) {
         message: string;
       } = await response.json();
       if (!data.error) {
-        if (node) {
-          const owner = await IdentityKey.import(keyPair);
-          const ownerPayload = JSON.stringify(data.data);
-          const ownerSigBuf = await owner.sign(ownerPayload);
-          const ownerSignature = bufferToBase64(ownerSigBuf);
-          const signedValueByOwner = {
-            payload: ownerPayload,
-            ownerSignature: ownerSignature,
-          };
-          await node.storeWithSignature(
-            data.data.endpoint,
-            signedValueByOwner,
-            ownerPublicKey,
-          );
-        }
         setFunctions([...functions, data.data]);
         toggle.current?.click();
         setAlertMsg("Fonksiyon başarıyla oluşturuldu.");

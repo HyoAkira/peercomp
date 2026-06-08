@@ -9,13 +9,21 @@ const functionSchema = new Schema({
   type: { type: String, default: "function" },
   metadata: {
     namespace: { type: String, required: true },
+    delegationToken: { type: String },
+  },
+  kvPermission: {
+    enabled: true,
+    functionIdentity: {
+      privateKey: { type: String, required: true },
+      publicKey: { type: String, required: true },
+    },
   },
 });
 
 // DÜZELTME: İç içe alanlar için nokta notasyonu (dot notation) kullanılmalı
 functionSchema.index(
-  { endpoint: 1, method: 1, "metadata.namespace": 1 }, 
-  { unique: true }
+  { endpoint: 1, method: 1, "metadata.namespace": 1 },
+  { unique: true },
 );
 
 const FunctionModel = model("Function", functionSchema);
