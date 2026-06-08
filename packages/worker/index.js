@@ -1,3 +1,4 @@
+import { IdentityKey } from "@peercomp/encryption/utils";
 export async function runUserCodeInSES(userCode, args) {
   const secureFetch = harden(async (url, options) => {
     const isPrivateOrInvalid = isPrivateOrInvalidIP(new URL(url).hostname);
@@ -68,5 +69,26 @@ export async function runUserCodeInSES(userCode, args) {
       success: false,
       error: error.message,
     };
+  }
+}
+ 
+export class KvSdk {
+  constructor(node) {
+    this.node = node;
+  }
+  async calculateAddress(key, signature) {
+    const namespace = await IdentityKey.calculateNamespace(signature);
+    const actualKey = `${namespace}:kv:${key}`;
+    return actualKey;
+  }
+  async get(key) {
+    return await this.node.findValue(key);
+  }
+  async set(key, value, signature) {
+    const calculatedKey = await this.calculateAddress(key, signature);
+    await this.node.storeWithSignature(calculatedKey, value, signature);
+  }
+  async delete(key) {
+    await this.node.kv.delete(key);
   }
 }

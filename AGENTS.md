@@ -30,3 +30,16 @@ ALPHA: Concurrency parameter for parallel network lookups.
 Identity Key: Asymmetric key pair representing a user's network identity.
 Shared Key: Symmetric key derived via ECDH for encrypted data exchange.
 FunctionModel: Database schema for storing executable JavaScript units.
+
+# Memory Bank
+Persistent context for AI agents. **Read all 5 files in `memory-bank/` before starting any task:**
+
+| Order | File | Purpose |
+|-------|------|---------|
+| 1 | `projectbrief.md` | Project foundation — what PeerComp is, goals, scope |
+| 2 | `techContext.md` | Technology stack, dependencies, dev commands, env vars |
+| 3 | `systemPatterns.md` | Architecture patterns, data flows, protocols |
+| 4 | `activeContext.md` | Current focus, technical debt, recent changes, next tasks |
+| 5 | `progress.md` | Implementation status, milestones, blockers, KPIs |
+
+See `memory-bank/AGENTS.md` for detailed reading rules and update procedures.

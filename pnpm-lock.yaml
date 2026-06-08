@@ -233,7 +233,11 @@ importers:
         specifier: ^5.0.0
         version: 5.9.3
 
-  packages/worker: {}
+  packages/worker:
+    dependencies:
+      '@peercomp/encryption':
+        specifier: workspace:*
+        version: link:../encryption
 
 packages:
 

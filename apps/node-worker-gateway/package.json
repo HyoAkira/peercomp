@@ -5,11 +5,10 @@
   "description": "",
   "main": "main.ts",
   "scripts": {
-    "dev": "NODE_OPTIONS='--use-system-ca' tsx --watch main.ts "
+    "dev": "npm ci && NODE_OPTIONS='--use-system-ca' tsx --watch main.ts "
   },
   "keywords": [],
   "author": "",
-
   "license": "ISC",
   "dependencies": {
     "dotenv": "^17.4.2",
