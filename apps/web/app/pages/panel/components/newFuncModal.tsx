@@ -1,5 +1,5 @@
 import { api } from "@peercomp/config";
-import { IdentityKey } from "@peercomp/encryption/utils";
+import { bufferToBase64, IdentityKey } from "@peercomp/encryption/utils";
 import CodeEditor from "@uiw/react-textarea-code-editor"; // <-- Paket eklendi
 import { useRef, useState } from "react";
 import { minify } from "terser";
@@ -26,6 +26,11 @@ export default function NewFuncModal({}: Readonly<{}>) {
     "GET" as FunctionMethod,
   );
 
+  // === KV YETKİ ALANI STATE'LERİ ===
+  const [kvEnabled, setKvEnabled] = useState(false);
+  const [kvPatterns, setKvPatterns] = useState("");
+  const [kvHours, setKvHours] = useState("24");
+
   const [inputCode, setCode] = useState(`(async ()=> {
   const user = await fetch("https://jsonplaceholder.typicode.com/users/1").then(res=>res.json());
   return user;
@@ -43,6 +48,7 @@ export default function NewFuncModal({}: Readonly<{}>) {
       }, 3000);
       return;
     }
+   
     const url = `${api.baseURL}${api.apiURL}functions/create`;
     let finalCode = inputCode;
     const minifiedResult = await minify(inputCode, {
@@ -66,9 +72,57 @@ export default function NewFuncModal({}: Readonly<{}>) {
     const ownerPublicKey = keyPair.publicKey;
     const targetNamespace =
       await IdentityKey.calculateNamespace(ownerPublicKey);
-    const functionIdentity = await IdentityKey.generate();
-    const functionIdentityExport = await functionIdentity.export();
-    const payload = {
+
+    // === KV YETKİ ALANI ===
+    let kvPermission = null;
+    if (kvEnabled) {
+      const allowedKeys = kvPatterns
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean);
+
+      if (allowedKeys.length === 0) {
+        setAlertMsg("En az bir key pattern girin.");
+        setTimeout(() => setAlertMsg(""), 3000);
+        return;
+      }
+      if (!kvHours || parseInt(kvHours) < 1) {
+        setAlertMsg("Geçerli bir süre girin.");
+        setTimeout(() => setAlertMsg(""), 3000);
+        return;
+      }
+
+      // Bu fonksiyona özel yeni bir IdentityKey üret
+      const functionIdentity = await IdentityKey.generate();
+      const functionIdentityPub = await functionIdentity.exportPublicKey();
+      const functionIdentityExport = await functionIdentity.export();
+
+      const expiresAt = Date.now() + parseInt(kvHours) * 3600 * 1000;
+
+      // Owner olarak token'ı imzala
+      const owner = await IdentityKey.import(keyPair);
+      const tokenDataToSign = JSON.stringify({
+        delegatePublicKey: functionIdentityPub,
+        allowedKeys,
+        expiresAt,
+      });
+      const ownerSigBuf = await owner.sign(tokenDataToSign);
+
+      kvPermission = {
+        enabled: true,
+        allowedKeys,
+        expiresAt,
+        delegationToken: {
+          delegatePublicKey: functionIdentityPub,
+          allowedKeys,
+          expiresAt,
+          ownerSignature: bufferToBase64(ownerSigBuf),
+        },
+        functionIdentity: functionIdentityExport,
+      };
+    }
+
+    const payload: any = {
       name: inputName,
       endpoint: inputEndpoint,
       method: inputMethod,
@@ -77,11 +131,11 @@ export default function NewFuncModal({}: Readonly<{}>) {
       metadata: {
         namespace: targetNamespace,
       },
-      kvPermission: {
-        enabled: true,
-        functionIdentity: functionIdentityExport,
-      },
     };
+    if (kvPermission) {
+      payload.kvPermission = kvPermission;
+    }
+
     if (node) {
       const owner = await IdentityKey.import(keyPair);
       const ownerPayload = JSON.stringify(payload);
@@ -129,6 +183,10 @@ export default function NewFuncModal({}: Readonly<{}>) {
         setTimeout(() => {
           setAlertMsg("");
         }, 3000);
+        // Form'u sıfırla
+        setKvEnabled(false);
+        setKvPatterns("");
+        setKvHours("24");
       }
     } catch (error) {
       console.error(error);
@@ -163,7 +221,7 @@ export default function NewFuncModal({}: Readonly<{}>) {
           {/* CONTENT */}
           <div className="grid grid-cols-1 lg:grid-cols-[320px_1fr] min-h-[550px]">
             {/* SIDEBAR */}
-            <div className="border-r border-base-300 bg-base-200/30 p-5 flex flex-col gap-5">
+            <div className="border-r border-base-300 bg-base-200/30 p-5 flex flex-col gap-5 overflow-y-auto max-h-[80vh]">
               <div className="form-control">
                 <label className="label">
                   <span className="label-text">Fonksiyon Adı</span>
@@ -203,6 +261,68 @@ export default function NewFuncModal({}: Readonly<{}>) {
                   <option>POST</option>
                 </select>
               </div>
+
+              {/* === KV YAZMA YETKİ ALANI === */}
+              <div className="divider text-xs">KV Yazma Yetkisi</div>
+
+              <div className="form-control">
+                <label className="label cursor-pointer justify-start gap-3">
+                  <input
+                    type="checkbox"
+                    className="checkbox checkbox-primary checkbox-sm"
+                    checked={kvEnabled}
+                    onChange={(e) => setKvEnabled(e.target.checked)}
+                  />
+                  <span className="label-text">
+                    Bu fonksiyon KV'ye yazabilsin
+                  </span>
+                </label>
+              </div>
+
+              {kvEnabled && (
+                <>
+                  <div className="alert alert-info py-2 px-3 text-xs">
+                    <span>
+                      🔒 Güvenlik: Yazma süresi sınırı dolduğunda fonksiyon KV
+                      yazma yetkisini kaybedecektir.
+                    </span>
+                  </div>
+
+                  <div className="form-control">
+                    <label className="label py-1">
+                      <span className="label-text">
+                        İzin Verilen Anahtar Pattern'ları
+                      </span>
+                    </label>
+                    <input
+                      type="text"
+                      className="input input-bordered input-sm"
+                      placeholder="posts/*, profile/avatar, settings/*"
+                      value={kvPatterns}
+                      onChange={(e) => setKvPatterns(e.target.value)}
+                    />
+                    <span className="label-text-alt mt-1">
+                      Virgülle ayır. * = wildcard
+                    </span>
+                  </div>
+
+                  <div className="form-control">
+                    <label className="label py-1">
+                      <span className="label-text">
+                        Geçerlilik Süresi (saat)
+                      </span>
+                    </label>
+                    <input
+                      type="number"
+                      min="1"
+                      className="input input-bordered input-sm"
+                      placeholder="24"
+                      value={kvHours}
+                      onChange={(e) => setKvHours(e.target.value)}
+                    />
+                  </div>
+                </>
+              )}
             </div>
 
             {/* CODE EDITOR */}
@@ -225,10 +345,9 @@ export default function NewFuncModal({}: Readonly<{}>) {
                     fontSize: 14,
                     fontFamily:
                       "ui-monospace, SFMono-Regular, SF Mono, Menlo, Consolas, Liberation Mono, monospace",
-                    // backgroundColor: "base-300", /* daisyUI temasına uyması için */
                     minHeight: "100%",
                   }}
-                  data-color-mode="dark" // Eğer siten koyu temalıysa 'dark', açıksa 'light' yapabilirsin.
+                  data-color-mode="dark"
                 />
               </div>
             </div>

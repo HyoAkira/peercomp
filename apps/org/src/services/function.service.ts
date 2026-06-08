@@ -9,6 +9,7 @@ export default class FunctionService {
     code,
     author,
     metadata,
+    kvPermission,
   }: {
     name: string;
     endpoint: string;
@@ -17,6 +18,21 @@ export default class FunctionService {
     author: string;
     metadata: {
       namespace: string;
+    };
+    kvPermission: {
+      enabled: boolean;
+      allowedKeys: string[];
+      expiresAt: Date;
+      delegationToken: {
+        delegatePublicKey: string;
+        allowedKeys: string[];
+        expiresAt: number;
+        ownerSignature: string;
+      };
+      functionIdentity: {
+        publicKey: string;
+        privateKey: string;
+      };
     };
   }) {
     const check = await checkExist(endpoint, author, method);
@@ -30,6 +46,7 @@ export default class FunctionService {
       code,
       author,
       metadata,
+      kvPermission,
     });
     await func.save();
     return {

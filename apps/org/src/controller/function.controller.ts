@@ -6,15 +6,10 @@ class FunctionController {
 
   async createFunction(req: Request, res: Response, next: NextFunction) {
     try {
-      const { name, endpoint, method, code, metadata } = req.body;
+     
       const author = req.userId;
       const result = await this.functionService.createFunction({
-        name,
-        endpoint,
-        method,
-        code,
-        metadata,
-        author,
+  ...req.body, author
       });
       res.status(result.code).json(result);
     } catch (error) {

@@ -9,13 +9,20 @@ const functionSchema = new Schema({
   type: { type: String, default: "function" },
   metadata: {
     namespace: { type: String, required: true },
-    delegationToken: { type: String },
   },
   kvPermission: {
-    enabled: true,
+    enabled: { type: Boolean, default: false },
+    allowedKeys: [{ type: String }],
+    expiresAt: { type: Date },
+    delegationToken: {
+      delegatePublicKey: { type: String },
+      allowedKeys: [{ type: String }],
+      expiresAt: { type: Number },
+      ownerSignature: { type: String },
+    },
     functionIdentity: {
-      privateKey: { type: String, required: true },
-      publicKey: { type: String, required: true },
+      publicKey: { type: String },
+      privateKey: { type: String },
     },
   },
 });
