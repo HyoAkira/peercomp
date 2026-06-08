@@ -68,9 +68,23 @@ export default function NewFuncModal({}: Readonly<{}>) {
       await IdentityKey.calculateNamespace(ownerPublicKey);
     const functionIdentity = await IdentityKey.generate();
     const functionIdentityExport = await functionIdentity.export();
+    const payload = {
+      name: inputName,
+      endpoint: inputEndpoint,
+      method: inputMethod,
+      type: "function",
+      code: finalCode,
+      metadata: {
+        namespace: targetNamespace,
+      },
+      kvPermission: {
+        enabled: true,
+        functionIdentity: functionIdentityExport,
+      },
+    };
     if (node) {
       const owner = await IdentityKey.import(keyPair);
-      const ownerPayload = JSON.stringify(data.data);
+      const ownerPayload = JSON.stringify(payload);
       const ownerSigBuf = await owner.sign(ownerPayload);
       const ownerSignature = bufferToBase64(ownerSigBuf);
       const signedValueByOwner = {
@@ -78,7 +92,7 @@ export default function NewFuncModal({}: Readonly<{}>) {
         ownerSignature: ownerSignature,
       };
       await node.storeWithSignature(
-        data.data.endpoint,
+        payload.endpoint,
         signedValueByOwner,
         ownerPublicKey,
       );
@@ -89,20 +103,7 @@ export default function NewFuncModal({}: Readonly<{}>) {
         authorization: `Bearer ${token}`,
         "content-type": "application/json",
       },
-      body: JSON.stringify({
-        name: inputName,
-        endpoint: inputEndpoint,
-        method: inputMethod,
-        type: "function",
-        code: finalCode,
-        metadata: {
-          namespace: targetNamespace,
-        },
-        kvPermission: {
-          enabled: true,
-          functionIdentity: functionIdentityExport,
-        },
-      }),
+      body: JSON.stringify(payload),
     };
 
     try {
