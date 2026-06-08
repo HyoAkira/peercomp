@@ -31,8 +31,8 @@ app.all("/", async (req: Request, res: Response) => {
     const key = req.subdomain;
     const args = req.body?.args || [];
     const method = req.method;
-    const signature = req.headers["x-signature"] as string | undefined;
-    const result = await handleRequest(key, args, method, signature);
+    const publicKeyForTargetNamespace = req.headers["x-targetnamespace"] as string | undefined;
+    const result = await handleRequest(key, args, method, publicKeyForTargetNamespace);
 
     if (!result) {
       return res.status(404).json({
@@ -80,10 +80,10 @@ async function handleRequest(
   key: string,
   args: string[],
   method: string,
-  signature: string,
+  publicKeyForTargetNamespace: string,
 ) {
   try {
-    const result = await node.call_function(key, args, method, signature);
+    const result = await node.call_function(key, args, method, publicKeyForTargetNamespace);
     return {
       code: 200,
       message: "OK",
@@ -93,10 +93,10 @@ async function handleRequest(
   } catch(e) {
     console.log(`Error calling function ${key} via node:`, e);
     try {
-      if (!signature) {
-        throw new Error("Signature is required for FUNCTION-CALL");
+      if (!publicKeyForTargetNamespace) {
+        throw new Error("Public key for target namespace is required for FUNCTION-CALL");
       }
-      const targetNamespace = await IdentityKey.calculateNamespace(signature);
+      const targetNamespace = await IdentityKey.calculateNamespace(publicKeyForTargetNamespace);
 
       const funcData = await FunctionModel.findOne({
         endpoint: key,
