@@ -12,18 +12,37 @@ import {
 } from "~/lib/store";
 type FunctionMethod = "GET" | "POST";
 
+type KvPermissionProp = {
+  enabled: boolean;
+  allowedKeys: string[];
+  expiresAt: number | string;
+} | null | undefined;
+
+function computeRemainingHours(expiresAt: number | string | undefined): string {
+  if (!expiresAt) return "24";
+  const ts =
+    typeof expiresAt === "string" ? Date.parse(expiresAt) : expiresAt;
+  if (!ts || Number.isNaN(ts)) return "24";
+  const diffMs = ts - Date.now();
+  if (diffMs <= 0) return "1";
+  const hours = Math.ceil(diffMs / (3600 * 1000));
+  return String(hours);
+}
+
 export default function EditModalComponent({
   name,
   method,
   functionId,
   endpoint,
   code,
+  kvPermission,
 }: Readonly<{
   name: string;
   method: string;
   functionId: string;
   endpoint: string;
   code: string;
+  kvPermission?: KvPermissionProp;
 }>) {
   const [inputName, setName] = useState(name);
   const keyPair = useIdentityKey((state) => state.keyPair);
@@ -40,6 +59,17 @@ export default function EditModalComponent({
 
   const [inputCode, setCode] = useState(code);
 
+  // === KV YETKİ ALANI STATE'LERİ (mevcut değerlerle başlatılır) ===
+  const [kvEnabled, setKvEnabled] = useState<boolean>(
+    Boolean(kvPermission?.enabled),
+  );
+  const [kvPatterns, setKvPatterns] = useState<string>(
+    (kvPermission?.allowedKeys ?? []).join(", "),
+  );
+  const [kvHours, setKvHours] = useState<string>(
+    computeRemainingHours(kvPermission?.expiresAt),
+  );
+
   async function handleSave(
     event: React.MouseEvent<HTMLButtonElement, MouseEvent>,
   ): Promise<void> {
@@ -52,42 +82,94 @@ export default function EditModalComponent({
       }, 3000);
       return;
     }
-    const userInput = {
+
+    // 1) Kodu minify et
+    let finalCode = inputCode;
+    const minifiedResult = await minify(inputCode, {
+      mangle: false,
+      parse: {
+        bare_returns: true,
+      },
+      compress: {
+        dead_code: true,
+        drop_debugger: true,
+        module: true,
+      },
+      format: {
+        comments: false,
+      },
+    });
+    if (minifiedResult && minifiedResult.code) {
+      finalCode = minifiedResult.code;
+    }
+
+    // 2) KV payload kararı (3'lü mantık)
+    //    - kvEnabled === true  => yeni delegate key + token üret, payload'a ekle
+    //    - kvEnabled === false ve eskiden açıktı => payload'a null koy (kapat)
+    //    - kvEnabled === false ve eskiden kapalıydı => payload'a hiç ekleme (dokunma)
+    let kvPermissionPayload: any = undefined; // "hiç gönderme" sinyali
+    if (kvEnabled) {
+      const allowedKeys = kvPatterns
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean);
+
+      if (allowedKeys.length === 0) {
+        setAlertMsg("En az bir key pattern girin.");
+        setTimeout(() => setAlertMsg(""), 3000);
+        return;
+      }
+      if (!kvHours || parseInt(kvHours) < 1) {
+        setAlertMsg("Geçerli bir süre girin.");
+        setTimeout(() => setAlertMsg(""), 3000);
+        return;
+      }
+
+      // Bu fonksiyona özel yeni bir IdentityKey üret (eskiyi geçersiz kılar)
+      const functionIdentity = await IdentityKey.generate();
+      const functionIdentityPub = await functionIdentity.exportPublicKey();
+      const functionIdentityExport = await functionIdentity.export();
+
+      const expiresAt = Date.now() + parseInt(kvHours) * 3600 * 1000;
+
+      // Owner olarak token'ı imzala
+      const owner = await IdentityKey.import(keyPair);
+      const tokenDataToSign = JSON.stringify({
+        delegatePublicKey: functionIdentityPub,
+        allowedKeys,
+        expiresAt,
+      });
+      const ownerSigBuf = await owner.sign(tokenDataToSign);
+
+      kvPermissionPayload = {
+        enabled: true,
+        allowedKeys,
+        expiresAt,
+        delegationToken: {
+          delegatePublicKey: functionIdentityPub,
+          allowedKeys,
+          expiresAt,
+          ownerSignature: bufferToBase64(ownerSigBuf),
+        },
+        functionIdentity: functionIdentityExport,
+      };
+    } else if (kvPermission?.enabled) {
+      // Daha önce açıktı, şimdi kapatılıyor
+      kvPermissionPayload = null;
+    }
+
+    // 3) PUT payload
+    const userInput: any = {
       name: inputName,
       endpoint: inputEndpoint,
       method: inputMethod,
-      code: inputCode,
+      code: finalCode,
     };
+    if (kvPermissionPayload !== undefined) {
+      userInput.kvPermission = kvPermissionPayload;
+    }
 
     try {
-      let finalCode = inputCode;
-
-      // 1. Sadece JS kodunun olduğu metni Terser ile minify ediyoruz
-      // Terser client-side'da nesne döndürdüğü için .code alanını almalıyız
-      const minifiedResult = await minify(inputCode, {
-        mangle: false,
-        parse: {
-          bare_returns: true, // Return ifadelerinin etrafına süslü parantez eklemeden bırakır
-        },
-        compress: {
-          dead_code: true,
-          drop_debugger: true,
-          module: true,
-        },
-        format: {
-          comments: false, // Yorum satırlarını da silsin
-        },
-      });
-
-      if (minifiedResult && minifiedResult.code) {
-        finalCode = minifiedResult.code;
-      }
-      const userInput = {
-        name: inputName,
-        endpoint: inputEndpoint,
-        method: inputMethod,
-        code: finalCode, // Sıkıştırılmış kod buraya gidiyor
-      };
       const response = await fetch(
         `${api.baseURL}${api.apiURL}functions/${functionId}`,
         {
@@ -104,8 +186,6 @@ export default function EditModalComponent({
       if (data.error) throw new Error(data.error);
 
       if (node) {
-        console.log("Updated function:", data.data);
-        // await node.store(data.data.endpoint, data.data); // Peer'e de kaydet
         const owner = await IdentityKey.import(keyPair);
         const ownerPayload = JSON.stringify(data.data);
         const ownerSigBuf = await owner.sign(ownerPayload);
@@ -160,7 +240,7 @@ export default function EditModalComponent({
           {/* CONTENT */}
           <div className="grid grid-cols-1 lg:grid-cols-[320px_1fr] min-h-[550px]">
             {/* SIDEBAR */}
-            <div className="border-r border-base-300 bg-base-200/30 p-5 flex flex-col gap-5">
+            <div className="border-r border-base-300 bg-base-200/30 p-5 flex flex-col gap-5 overflow-y-auto max-h-[80vh]">
               <div className="form-control">
                 <label className="label">
                   <span className="label-text">Fonksiyon Adı</span>
@@ -200,6 +280,68 @@ export default function EditModalComponent({
                   <option>POST</option>
                 </select>
               </div>
+
+              {/* === KV YAZMA YETKİ ALANI === */}
+              <div className="divider text-xs">KV Yazma Yetkisi</div>
+
+              <div className="form-control">
+                <label className="label cursor-pointer justify-start gap-3">
+                  <input
+                    type="checkbox"
+                    className="checkbox checkbox-primary checkbox-sm"
+                    checked={kvEnabled}
+                    onChange={(e) => setKvEnabled(e.target.checked)}
+                  />
+                  <span className="label-text">
+                    Bu fonksiyon KV'ye yazabilsin
+                  </span>
+                </label>
+              </div>
+
+              {kvEnabled && (
+                <>
+                  <div className="alert alert-info py-2 px-3 text-xs">
+                    <span>
+                      🔒 Güvenlik: Yazma süresi sınırı dolduğunda fonksiyon KV
+                      yazma yetkisini kaybedecektir. Yeni bir süre ile yenilenebilir.
+                    </span>
+                  </div>
+
+                  <div className="form-control">
+                    <label className="label py-1">
+                      <span className="label-text">
+                        İzin Verilen Anahtar Pattern'ları
+                      </span>
+                    </label>
+                    <input
+                      type="text"
+                      className="input input-bordered input-sm"
+                      placeholder="posts/*, profile/avatar, settings/*"
+                      value={kvPatterns}
+                      onChange={(e) => setKvPatterns(e.target.value)}
+                    />
+                    <span className="label-text-alt mt-1">
+                      Virgülle ayır. * = wildcard
+                    </span>
+                  </div>
+
+                  <div className="form-control">
+                    <label className="label py-1">
+                      <span className="label-text">
+                        Geçerlilik Süresi (saat)
+                      </span>
+                    </label>
+                    <input
+                      type="number"
+                      min="1"
+                      className="input input-bordered input-sm"
+                      placeholder="24"
+                      value={kvHours}
+                      onChange={(e) => setKvHours(e.target.value)}
+                    />
+                  </div>
+                </>
+              )}
             </div>
 
             {/* CODE EDITOR */}
@@ -211,8 +353,7 @@ export default function EditModalComponent({
                 <span className="badge badge-sm badge-neutral">javascript</span>
               </div>
 
-              {/* Arka plan doğrudan base-100 yapıldı ve taşma scroll ile sınırlandırıldı */}
-              <div className="flex-1 min-h-[480px] max-h-[600px] overflow-auto bg-base-100">
+              <div className="flex-1 min-h-[480px] max-h-[600px] overflow-auto custom-scrollbar">
                 <CodeEditor
                   value={inputCode}
                   language="js"
@@ -225,7 +366,7 @@ export default function EditModalComponent({
                       "ui-monospace, SFMono-Regular, SF Mono, Menlo, Consolas, Liberation Mono, monospace",
                     minHeight: "100%",
                   }}
-                  data-color-mode="dark" // Kullandığın temaya göre 'light' olarak da değiştirebilirsin
+                  data-color-mode="dark"
                 />
               </div>
             </div>

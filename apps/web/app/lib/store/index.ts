@@ -37,24 +37,34 @@ const useIdentityKey = create<IdentityKeyStore>()(
   ),
 );
 
+type FunctionItem = Readonly<{
+  _id: string;
+  name: string;
+  method: string;
+  code: string;
+  endpoint: string;
+  type?: string;
+  metadata?: { namespace?: string };
+  kvPermission?: {
+    enabled: boolean;
+    allowedKeys: string[];
+    expiresAt: number | string;
+    delegationToken?: {
+      delegatePublicKey: string;
+      allowedKeys: string[];
+      expiresAt: number;
+      ownerSignature: string;
+    };
+    functionIdentity?: { publicKey: string; privateKey: string };
+  } | null;
+}>;
+
 const useFunctions = create<{
-  functions: Array<
-    Readonly<{ _id: string; name: string; method: string; code: string }>
-  >;
-  setFunctions: (
-    functions: Array<
-      Readonly<{ _id: string; name: string; method: string; code: string }>
-    >,
-  ) => void;
+  functions: Array<FunctionItem>;
+  setFunctions: (functions: Array<FunctionItem>) => void;
 }>((set) => ({
-  functions: [] as Array<
-    Readonly<{ _id: string; name: string; method: string; code: string }>
-  >,
-  setFunctions: (
-    functions: Array<
-      Readonly<{ _id: string; name: string; method: string; code: string }>
-    >,
-  ) => set({ functions }),
+  functions: [] as Array<FunctionItem>,
+  setFunctions: (functions: Array<FunctionItem>) => set({ functions }),
 }));
 
 type AlertStore = {

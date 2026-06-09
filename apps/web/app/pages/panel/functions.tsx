@@ -28,6 +28,7 @@ export default function FunctionsPage() {
             functionId={func._id}
             endpoint={func.endpoint}
             code={func.code}
+            kvPermission={func.kvPermission}
           />
         ))}
       </div>
@@ -36,18 +37,26 @@ export default function FunctionsPage() {
   );
 }
 
+type KvPermissionProp = {
+  enabled: boolean;
+  allowedKeys: string[];
+  expiresAt: number | string;
+} | null | undefined;
+
 function FunctionItem({
   name,
   method,
   functionId,
   endpoint,
   code,
+  kvPermission,
 }: Readonly<{
   name: string;
   method: string;
   functionId: string;
   endpoint: string;
   code: string;
+  kvPermission?: KvPermissionProp;
 }>) {
   return (
     <li className="list-row items-center">
@@ -90,6 +99,7 @@ function FunctionItem({
           name={name}
           functionId={functionId}
           code={code}
+          kvPermission={kvPermission as KvPermissionProp}
         />
         <DeleteModalComponent functionId={functionId} />
       </div>

@@ -41,6 +41,7 @@
 | Create Function (name, endpoint, method, code) | ✅ | Unique index on (endpoint, method, namespace) |
 | List User's Functions | ✅ | Panel with pagination |
 | Update Function Code/Metadata | ✅ | Partial update supported |
+| Update Function KV Permission (renew/disable/re-key) | ✅ | PUT /functions/:id accepts kvPermission: {…} or null |
 | Delete Function | ✅ | Modal confirmation |
 | P2P Execution (DHT lookup → remote peer) | 🟡 | Works in ideal conditions; flaky under churn |
 | Gateway Fallback (MongoDB → local worker) | ✅ | 15s timeout, SES sandbox |

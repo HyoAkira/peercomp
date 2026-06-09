@@ -62,6 +62,15 @@ a1f2c8e fix: gateway fallback worker timeout handling
 - `feature/function-versioning` — adds version field to FunctionModel, not merged
 - `fix/peer-reconnection` — handles WebRTC ICE restart, WIP
 
+### Uncommitted (work in progress)
+- **EditModal KV management**: `editModal.tsx` mirrors `newFuncModal.tsx`'s KV Yazma Yetkisi UI. Supports:
+  - Enabling KV on a function that had it disabled
+  - Renewing delegation token / changing allowed keys / changing TTL (new delegate key generated each save)
+  - Disabling KV when previously enabled (sends `kvPermission: null`)
+  - Leaving KV untouched when checkbox is unchecked and was already unchecked
+- **Backend**: `FunctionService.updateFunction` + `FunctionController.updateFunction` extended to accept `kvPermission` (object or `null`); `null` clears the field on the Mongoose document.
+- **Store**: `useFunctions` Zustand typing expanded with `endpoint`, `type`, `metadata`, `kvPermission`.
+
 ---
 
 ## Environment Status

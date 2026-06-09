@@ -39,7 +39,7 @@ class FunctionController {
   async updateFunction(req: Request, res: Response, next: NextFunction) {
     try {
       const { id }: { id: string } = req.params;
-      const { name, endpoint, method, code } = req.body;
+      const { name, endpoint, method, code, kvPermission } = req.body;
       const result = await this.functionService.updateFunction(
         id,
         {
@@ -47,6 +47,7 @@ class FunctionController {
           endpoint,
           method,
           code,
+          kvPermission,
         },
         req.userId
       );

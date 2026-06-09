@@ -115,11 +115,29 @@ export default class FunctionService {
       endpoint,
       method,
       code,
+      kvPermission,
     }: {
       name?: string;
       endpoint?: string;
       method?: "GET" | "POST";
       code?: string;
+      kvPermission?:
+        | {
+            enabled: boolean;
+            allowedKeys: string[];
+            expiresAt: number;
+            delegationToken: {
+              delegatePublicKey: string;
+              allowedKeys: string[];
+              expiresAt: number;
+              ownerSignature: string;
+            };
+            functionIdentity: {
+              publicKey: string;
+              privateKey: string;
+            };
+          }
+        | null;
     },
     userId: string,
   ) {
@@ -149,6 +167,17 @@ export default class FunctionService {
     if (endpoint) func.endpoint = endpoint;
     if (method) func.method = method;
     if (code) func.code = code;
+    // kvPermission alanı açıkça gönderildiyse dokun:
+    //   - null  => yetkiyi kapat (alanı temizle)
+    //   - obje  => yeni değerle değiştir
+    // hiç gönderilmediyse mevcut değere dokunma
+    if (kvPermission !== undefined) {
+      if (kvPermission === null) {
+        func.set("kvPermission", undefined);
+      } else {
+        func.kvPermission = kvPermission as any;
+      }
+    }
     await func.save();
     return {
       code: 200,
