@@ -471,25 +471,25 @@ export class GatewayNode {
       //     data: { stored: true },
       //   };
 
-      case "FUNCTION-CALL": {
-        const funcData = await this.findValue(msg.key);
-        if (!funcData || funcData.type !== "function")
-          return {
-            code: 404,
-            message: "Function not found",
-            error: true,
-            data: null,
-          };
-        try {
-          const output = await this._executeInWorker(
-            funcData.code,
-            msg.args || {},
-          );
-          return { code: 200, message: "OK", error: false, data: output };
-        } catch (e: any) {
-          return { code: 500, message: e.message, error: true, data: null };
-        }
-      }
+      // case "FUNCTION-CALL": {
+      //   const funcData = await this.findValue(msg.key);
+      //   if (!funcData || funcData.type !== "function")
+      //     return {
+      //       code: 404,
+      //       message: "Function not found",
+      //       error: true,
+      //       data: null,
+      //     };
+      //   try {
+      //     const output = await this._executeInWorker(
+      //       funcData.code,
+      //       msg.args || {},
+      //     );
+      //     return { code: 200, message: "OK", error: false, data: output };
+      //   } catch (e: any) {
+      //     return { code: 500, message: e.message, error: true, data: null };
+      //   }
+      // }
 
       default:
         return {
@@ -683,39 +683,39 @@ export class GatewayNode {
 
   // ── Worker Thread Executor ──────────────────────────────────────────────────
 
-  private _executeInWorker(code: string, args: any): Promise<any> {
-    return new Promise((resolve, reject) => {
-      const script = `
-        const { parentPort } = require('worker_threads');
-        parentPort.on('message', async ({ code, args }) => {
-          try {
-            const fn = eval(code);
-            const out = await fn(args);
-            parentPort.postMessage({ error: false, data: out });
-          } catch (err) {
-            parentPort.postMessage({ error: true, message: err.message });
-          }
-        });
-      `;
+  // private _executeInWorker(code: string, args: any): Promise<any> {
+  //   return new Promise((resolve, reject) => {
+  //     const script = `
+  //       const { parentPort } = require('worker_threads');
+  //       parentPort.on('message', async ({ code, args }) => {
+  //         try {
+  //           const fn = eval(code);
+  //           const out = await fn(args);
+  //           parentPort.postMessage({ error: false, data: out });
+  //         } catch (err) {
+  //           parentPort.postMessage({ error: true, message: err.message });
+  //         }
+  //       });
+  //     `;
 
-      const worker = new Worker(script, { eval: true });
-      const timeout = setTimeout(() => {
-        worker.terminate();
-        reject(new Error("Execution timeout"));
-      }, 5000);
+  //     const worker = new Worker(script, { eval: true });
+  //     const timeout = setTimeout(() => {
+  //       worker.terminate();
+  //       reject(new Error("Execution timeout"));
+  //     }, 5000);
 
-      worker.on("message", (res) => {
-        clearTimeout(timeout);
-        worker.terminate();
-        res.error ? reject(new Error(res.message)) : resolve(res.data);
-      });
+  //     worker.on("message", (res) => {
+  //       clearTimeout(timeout);
+  //       worker.terminate();
+  //       res.error ? reject(new Error(res.message)) : resolve(res.data);
+  //     });
 
-      worker.on("error", (e) => {
-        clearTimeout(timeout);
-        worker.terminate();
-        reject(e);
-      });
-      worker.postMessage({ code, args });
-    });
-  }
+  //     worker.on("error", (e) => {
+  //       clearTimeout(timeout);
+  //       worker.terminate();
+  //       reject(e);
+  //     });
+  //     worker.postMessage({ code, args });
+  //   });
+  // }
 }
