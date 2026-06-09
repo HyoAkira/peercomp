@@ -1,4 +1,4 @@
-import { model, Schema } from "mongoose";
+import { InferSchemaType, model, Schema } from "mongoose";
 
 const functionSchema = new Schema({
   name: { type: String, required: true },
@@ -34,4 +34,6 @@ functionSchema.index(
 );
 
 const FunctionModel = model("Function", functionSchema);
+type FunctionModelType = InferSchemaType<typeof functionSchema>;
 export default FunctionModel;
+export  type { FunctionModelType };

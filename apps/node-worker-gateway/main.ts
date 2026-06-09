@@ -1,5 +1,6 @@
 import { IdentityKey } from "@peercomp/encryption/utils";
 import { connectDB, FunctionModel } from "@peercomp/models";
+
 import dotenv from "dotenv";
 import express, { Request, Response } from "express";
 import { Worker } from "worker_threads";
@@ -31,8 +32,15 @@ app.all("/", async (req: Request, res: Response) => {
     const key = req.subdomain;
     const args = req.body?.args || [];
     const method = req.method;
-    const publicKeyForTargetNamespace = req.headers["x-targetnamespace"] as string | undefined;
-    const result = await handleRequest(key, args, method, publicKeyForTargetNamespace);
+    const publicKeyForTargetNamespace = req.headers["x-targetnamespace"] as
+      | string
+      | undefined;
+    const result = await handleRequest(
+      key,
+      args,
+      method,
+      publicKeyForTargetNamespace,
+    );
 
     if (!result) {
       return res.status(404).json({
@@ -83,22 +91,31 @@ async function handleRequest(
   publicKeyForTargetNamespace: string,
 ) {
   try {
-    const result = await node.call_function(key, args, method, publicKeyForTargetNamespace);
+    const result = await node.call_function(
+      key,
+      args,
+      method,
+      publicKeyForTargetNamespace,
+    );
     return {
       code: 200,
       message: "OK",
       error: false,
       data: result,
     };
-  } catch(e) {
+  } catch (e) {
     console.log(`Error calling function ${key} via node:`, e);
     try {
       if (!publicKeyForTargetNamespace) {
-        throw new Error("Public key for target namespace is required for FUNCTION-CALL");
+        throw new Error(
+          "Public key for target namespace is required for FUNCTION-CALL",
+        );
       }
-      const targetNamespace = await IdentityKey.calculateNamespace(publicKeyForTargetNamespace);
+      const targetNamespace = await IdentityKey.calculateNamespace(
+        publicKeyForTargetNamespace,
+      );
 
-      const funcData = await FunctionModel.findOne({
+      const funcData: FunctionModelType = await FunctionModel.findOne({
         endpoint: key,
         method: method,
         "metadata.namespace": targetNamespace,
@@ -149,7 +166,7 @@ async function handleRequest(
   }
 }
 
-function executeInWorker(code: string, args: any): Promise<any> {
+function executeInWorker(code: string, args: any, kvPermission): Promise<any> {
   return new Promise((resolve, reject) => {
     const worker = new Worker(new URL("./worker.mjs", import.meta.url), {
       eval: false,
