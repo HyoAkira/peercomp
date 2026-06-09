@@ -1,5 +1,6 @@
 import { IdentityKey } from "@peercomp/encryption/utils";
-export async function runUserCodeInSES(userCode, args) {
+export async function runUserCodeInSES(userCode, args, node, kvPermissions) {
+  console.log("kvPermissions", kvPermissions);
   const secureFetch = harden(async (url, options) => {
     const isPrivateOrInvalid = isPrivateOrInvalidIP(new URL(url).hostname);
     if (isPrivateOrInvalid) {
@@ -71,7 +72,7 @@ export async function runUserCodeInSES(userCode, args) {
     };
   }
 }
- 
+
 export class KvSdk {
   constructor(node) {
     this.node = node;

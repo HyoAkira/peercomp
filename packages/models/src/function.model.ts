@@ -36,4 +36,4 @@ functionSchema.index(
 const FunctionModel = model("Function", functionSchema);
 type FunctionModelType = InferSchemaType<typeof functionSchema>;
 export default FunctionModel;
-export  type { FunctionModelType };
+export type { FunctionModelType };

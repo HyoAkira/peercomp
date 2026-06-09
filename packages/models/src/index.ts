@@ -1,5 +1,5 @@
 import mongoose from "mongoose";
-import FunctionModel from "./function.model";
+import FunctionModel, { type FunctionModelType } from "./function.model";
 import KVModel from "./kv.model";
 import User from "./user.model";
 
@@ -9,3 +9,4 @@ const connectDB = async (uri: string) => {
 };
 
 export { connectDB, FunctionModel, KVModel, User };
+export type { FunctionModelType };
