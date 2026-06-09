@@ -145,7 +145,7 @@ async function handleRequest(
       // executeInWorker'a göndermeden önce:
       const wrappedCode = wrapCode(funcData.code);
 
-      const output = await executeInWorker(sanitizeCode(funcData.code), args);
+      const output = await executeInWorker(sanitizeCode(funcData.code), args,funcData.kvPermission);
 
       return {
         code: 200,
