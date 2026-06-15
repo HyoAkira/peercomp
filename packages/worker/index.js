@@ -1,6 +1,9 @@
 import { IdentityKey } from "@peercomp/encryption/utils";
-export async function runUserCodeInSES(userCode, args, kvPermission) {
-
+export async function runUserCodeInSES(sys, userCode, args, kvPermission) {
+  sys.postMessage({ type: "STORAGE_GET_REQUEST", success: true, data: {
+    kvPermission,
+    key: "29852d9765538f1686096ce6bd14ac96d2ab01dac811deaea1ff621b1332d342:kv:users/1"
+  } });
   const secureFetch = harden(async (url, options) => {
     const isPrivateOrInvalid = isPrivateOrInvalidIP(new URL(url).hostname);
     if (isPrivateOrInvalid) {

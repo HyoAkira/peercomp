@@ -2,19 +2,17 @@
 import { validateP2PWriteRequest } from "@peercomp/encryption/utils";
 import Peer from "peerjs";
 import { FunctionDatabase, KvDatabase } from "../dexie/dexie";
-import LogClass from "./classLogger";
-
 
 type FunctionModelType = {
-    name: string;
-    type: string;
-    endpoint: string;
-    method: "GET" | "POST";
-    code: string;
-    author: string;
-    metadata?: any;
-    kvPermission?: any;
-}
+  name: string;
+  type: string;
+  endpoint: string;
+  method: "GET" | "POST";
+  code: string;
+  author: string;
+  metadata?: any;
+  kvPermission?: any;
+};
 
 const K = 20; // k-bucket boyutu
 const ALPHA = 3; // paralel sorgu sayısı
@@ -703,7 +701,7 @@ export class KademliaNode {
 
       case "FUNCTION-CALL": {
         // find value ile fonksiyonun kendisi gelmeli, onu çalıştırıp sonucu döndürmeliyiz
-        const funcData:FunctionModelType = await this.findValue(msg.key);
+        const funcData: FunctionModelType = await this.findValue(msg.key);
         console.log(
           "FUNCTION-CALL message received for key:",
           msg.key,
@@ -757,25 +755,47 @@ export class KademliaNode {
               }, 5000);
 
               // Worker'dan sonuç geldiğinde
-              worker.onmessage = function (event) {
+              worker.onmessage = async (event) => {
                 clearTimeout(timeout);
-                worker.terminate();
+                // worker.terminate();
                 // URL.revokeObjectURL(workerUrl);
 
-                if (!event.data?.error) {
-                  resolve(event.data.data); // Başarılı sonucu Promise'e dön
-                } else {
-                  reject(
-                    new Error(event.data.message || "Worker execution failed"),
-                  );
+                switch (event.data.type) {
+                  case "RESULT": {
+                    if (!event.data?.error) {
+                      resolve(event.data.data); // Başarılı sonucu Promise'e dön
+                    } else {
+                      reject(
+                        new Error(
+                          event.data.message || "Worker execution failed",
+                        ),
+                      );
+                    }
+                    break;
+                  }
+                  case "STORAGE_GET_REQUEST": {
+                    const { kvPermission, key } = event.data.data;
+                    const value = await this.findValue(key); // KV verisini bul
+                    worker.postMessage({
+                      type: "STORAGE_GET_RESPONSE",
+                      value,
+                    });
+                    break;
+                  }
+                  case "STORAGE_SET_REQUEST": {
+                    break;
+                  }
+                  case "STORAGE_DELETE_REQUEST": {
+                    break;
+                  }
                 }
               };
 
-
               worker.postMessage({
+                type: "EXECUTE",
                 code: funcData.code,
                 args: msg.args || {},
-                kvPermission: funcData.kvPermission
+                kvPermission: funcData.kvPermission,
               });
             });
 
