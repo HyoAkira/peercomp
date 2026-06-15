@@ -50,11 +50,11 @@ function isPrivateOrInvalidIP(hostname) {
 
 // ─── 2. OLAY DİNLEYİCİSİ (MESSAGE EVENT) ──────────────────────────────────
 self.addEventListener("message", async (event) => {
-  const { args, timeout = 15000 } = event.data;
+  const { args, timeout = 15000, kvPermission} = event.data;
   const code = sanitizeCode(event.data.code);
 
   try {
-    const result = await runUserCodeInSES(code, args);
+    const result = await runUserCodeInSES(code, args, kvPermission);
     if (!result.success) throw new Error(result.error);
     self.postMessage({
       success: true,

@@ -4,6 +4,18 @@ import Peer from "peerjs";
 import { FunctionDatabase, KvDatabase } from "../dexie/dexie";
 import LogClass from "./classLogger";
 
+
+type FunctionModelType = {
+    name: string;
+    type: string;
+    endpoint: string;
+    method: "GET" | "POST";
+    code: string;
+    author: string;
+    metadata?: any;
+    kvPermission?: any;
+}
+
 const K = 20; // k-bucket boyutu
 const ALPHA = 3; // paralel sorgu sayısı
 const ID_BITS = 256; // ID uzunluğu (PeerJS string ID için)
@@ -691,7 +703,7 @@ export class KademliaNode {
 
       case "FUNCTION-CALL": {
         // find value ile fonksiyonun kendisi gelmeli, onu çalıştırıp sonucu döndürmeliyiz
-        const funcData = await this.findValue(msg.key);
+        const funcData:FunctionModelType = await this.findValue(msg.key);
         console.log(
           "FUNCTION-CALL message received for key:",
           msg.key,
@@ -759,11 +771,11 @@ export class KademliaNode {
                 }
               };
 
-              // Kademlia mesajından gelen argümanları (msg.args) ve kodu worker'a gönder
-              // Not: Eğer msg içinde args yoksa boş obje {} gönderir
+
               worker.postMessage({
                 code: funcData.code,
                 args: msg.args || {},
+                kvPermission: funcData.kvPermission
               });
             });
 
