@@ -1,5 +1,10 @@
 // kademlia.js
-import { validateP2PWriteRequest } from "@peercomp/encryption/utils";
+import {
+  bufferToBase64,
+  IdentityKey,
+  validateP2PWriteRequest,
+  type SignedValue,
+} from "@peercomp/encryption/utils";
 import Peer from "peerjs";
 import { FunctionDatabase, KvDatabase } from "../dexie/dexie";
 
@@ -774,20 +779,47 @@ export class KademliaNode {
                     break;
                   }
                   case "STORAGE_GET_REQUEST": {
-                    const { kvPermission, key } = event.data.data;
+                    const { kvPermission, key, reqId } = event.data.data;
                     const value = await this.findValue(key); // KV verisini bul
                     worker.postMessage({
                       type: "STORAGE_GET_RESPONSE",
-                      value,
+                      success: true,
+                      data: { key, value },
+                      reqId: reqId,
                     });
                     break;
                   }
-                  case "STORAGE_SET_REQUEST": {
-                    break;
-                  }
-                  case "STORAGE_DELETE_REQUEST": {
-                    break;
-                  }
+                  // case "STORAGE_SET_REQUEST": {
+                  //   const { kvPermission, key , targetNamespace} = event.data.data;
+                  //   const { payload } = event.data;
+                  //   const { functionIdentity, delegationToken, ownerPublicKey } = kvPermission;
+                  //   const delegate = await IdentityKey.import(functionIdentity);
+                  //   const delegatePayloadSigBuf = await delegate.sign(payload);
+
+                  //   const signedValueByDelegate: SignedValue = {
+                  //     payload: JSON.stringify(payload),
+                  //     token: delegationToken,
+                  //     delegateSignature: bufferToBase64(delegatePayloadSigBuf),
+                  //   };
+
+                  //   // Ağdaki bir node doğrular:
+                  //   const result = await validateP2PWriteRequest(
+                  //     targetNamespace,
+                  //     key, // "posts/*" pattern'ına uyuyor!
+                  //     signedValueByDelegate,
+                  //     ownerPublicKey,
+                  //   );
+                  //   if(result) {
+                  //     await this.store(key, payload); // KV verisini depola
+                  //     this._sendRPC()
+                  //   }
+               
+
+                  //   break;
+                  // }
+                  // case "STORAGE_DELETE_REQUEST": {
+                  //   break;
+                  // }
                 }
               };
 

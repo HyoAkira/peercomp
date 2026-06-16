@@ -12,7 +12,7 @@ parentPort.on(
   async ({ code, args, timeout = 15000, kvPermission }) => {
     try {
       console.log(kvPermission);
-      const result = await runUserCodeInSES(parentPort, code, args);
+      const result = await runUserCodeInSES(parentPort, code, args, kvPermission, true);
       if (!result.success) throw new Error(result.error);
       parentPort.postMessage({
         success: true,

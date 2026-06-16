@@ -14,7 +14,7 @@ const functionSchema = new mongoose_1.Schema({
     kvPermission: {
         enabled: { type: Boolean, default: false },
         allowedKeys: [{ type: String }],
-        expiresAt: { type: Date },
+        expiresAt: { type: Number },
         delegationToken: {
             delegatePublicKey: { type: String },
             allowedKeys: [{ type: String }],
@@ -25,6 +25,7 @@ const functionSchema = new mongoose_1.Schema({
             publicKey: { type: String },
             privateKey: { type: String },
         },
+        ownerPublicKey: { type: String },
     },
 });
 // DÜZELTME: İç içe alanlar için nokta notasyonu (dot notation) kullanılmalı

@@ -119,7 +119,7 @@ async function handleRequest(
         endpoint: key,
         method: method,
         "metadata.namespace": targetNamespace,
-      });
+      }).lean();
 
       if (!funcData) {
         throw new Error("Function not found");
@@ -145,7 +145,11 @@ async function handleRequest(
       // executeInWorker'a göndermeden önce:
       const wrappedCode = wrapCode(funcData.code);
 
-      const output = await executeInWorker(sanitizeCode(funcData.code), args,funcData.kvPermission);
+      const output = await executeInWorker(
+        sanitizeCode(funcData.code),
+        args,
+        funcData.kvPermission,
+      );
 
       return {
         code: 200,
@@ -194,6 +198,6 @@ function executeInWorker(code: string, args: any, kvPermission): Promise<any> {
       reject(err);
     });
 
-    worker.postMessage({ code, args });
+    worker.postMessage({ code, args, kvPermission });
   });
 }

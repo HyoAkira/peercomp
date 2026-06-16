@@ -14,7 +14,6 @@
 import { IdentityKey } from "@peercomp/encryption/utils";
 import * as nodeDc from "node-datachannel";
 import * as crypto from "node:crypto";
-import { Worker } from "node:worker_threads";
 import { pack, unpack } from "peerjs-js-binarypack";
 import WebSocket from "ws";
 

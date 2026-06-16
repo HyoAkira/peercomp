@@ -61,6 +61,7 @@ self.addEventListener("message", async (event) => {
         self.postMessage({
           success: true,
           data: result.data,
+          type: "RESULT"
         });
         break;
       }

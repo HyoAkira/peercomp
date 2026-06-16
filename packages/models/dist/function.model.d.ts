@@ -12,7 +12,7 @@ declare const functionSchema: Schema<any, import("mongoose").Model<any, any, any
     kvPermission?: {
         enabled: boolean;
         allowedKeys: string[];
-        expiresAt?: NativeDate | null | undefined;
+        expiresAt?: number | null | undefined;
         delegationToken?: {
             allowedKeys: string[];
             expiresAt?: number | null | undefined;
@@ -23,6 +23,7 @@ declare const functionSchema: Schema<any, import("mongoose").Model<any, any, any
             publicKey?: string | null | undefined;
             privateKey?: string | null | undefined;
         } | null | undefined;
+        ownerPublicKey?: string | null | undefined;
     } | null | undefined;
 }, import("mongoose").Document<unknown, {}, import("mongoose").FlatRecord<{
     name: string;
@@ -37,7 +38,7 @@ declare const functionSchema: Schema<any, import("mongoose").Model<any, any, any
     kvPermission?: {
         enabled: boolean;
         allowedKeys: string[];
-        expiresAt?: NativeDate | null | undefined;
+        expiresAt?: number | null | undefined;
         delegationToken?: {
             allowedKeys: string[];
             expiresAt?: number | null | undefined;
@@ -48,6 +49,7 @@ declare const functionSchema: Schema<any, import("mongoose").Model<any, any, any
             publicKey?: string | null | undefined;
             privateKey?: string | null | undefined;
         } | null | undefined;
+        ownerPublicKey?: string | null | undefined;
     } | null | undefined;
 }>, {}, import("mongoose").DefaultSchemaOptions> & import("mongoose").FlatRecord<{
     name: string;
@@ -62,7 +64,7 @@ declare const functionSchema: Schema<any, import("mongoose").Model<any, any, any
     kvPermission?: {
         enabled: boolean;
         allowedKeys: string[];
-        expiresAt?: NativeDate | null | undefined;
+        expiresAt?: number | null | undefined;
         delegationToken?: {
             allowedKeys: string[];
             expiresAt?: number | null | undefined;
@@ -73,6 +75,7 @@ declare const functionSchema: Schema<any, import("mongoose").Model<any, any, any
             publicKey?: string | null | undefined;
             privateKey?: string | null | undefined;
         } | null | undefined;
+        ownerPublicKey?: string | null | undefined;
     } | null | undefined;
 }> & {
     _id: import("mongoose").Types.ObjectId;
@@ -92,7 +95,7 @@ declare const FunctionModel: import("mongoose").Model<{
     kvPermission?: {
         enabled: boolean;
         allowedKeys: string[];
-        expiresAt?: NativeDate | null | undefined;
+        expiresAt?: number | null | undefined;
         delegationToken?: {
             allowedKeys: string[];
             expiresAt?: number | null | undefined;
@@ -103,6 +106,7 @@ declare const FunctionModel: import("mongoose").Model<{
             publicKey?: string | null | undefined;
             privateKey?: string | null | undefined;
         } | null | undefined;
+        ownerPublicKey?: string | null | undefined;
     } | null | undefined;
 }, {}, {}, {}, import("mongoose").Document<unknown, {}, {
     name: string;
@@ -117,7 +121,7 @@ declare const FunctionModel: import("mongoose").Model<{
     kvPermission?: {
         enabled: boolean;
         allowedKeys: string[];
-        expiresAt?: NativeDate | null | undefined;
+        expiresAt?: number | null | undefined;
         delegationToken?: {
             allowedKeys: string[];
             expiresAt?: number | null | undefined;
@@ -128,6 +132,7 @@ declare const FunctionModel: import("mongoose").Model<{
             publicKey?: string | null | undefined;
             privateKey?: string | null | undefined;
         } | null | undefined;
+        ownerPublicKey?: string | null | undefined;
     } | null | undefined;
 }, {}, import("mongoose").DefaultSchemaOptions> & {
     name: string;
@@ -142,7 +147,7 @@ declare const FunctionModel: import("mongoose").Model<{
     kvPermission?: {
         enabled: boolean;
         allowedKeys: string[];
-        expiresAt?: NativeDate | null | undefined;
+        expiresAt?: number | null | undefined;
         delegationToken?: {
             allowedKeys: string[];
             expiresAt?: number | null | undefined;
@@ -153,6 +158,7 @@ declare const FunctionModel: import("mongoose").Model<{
             publicKey?: string | null | undefined;
             privateKey?: string | null | undefined;
         } | null | undefined;
+        ownerPublicKey?: string | null | undefined;
     } | null | undefined;
 } & {
     _id: import("mongoose").Types.ObjectId;
@@ -171,7 +177,7 @@ declare const FunctionModel: import("mongoose").Model<{
     kvPermission?: {
         enabled: boolean;
         allowedKeys: string[];
-        expiresAt?: NativeDate | null | undefined;
+        expiresAt?: number | null | undefined;
         delegationToken?: {
             allowedKeys: string[];
             expiresAt?: number | null | undefined;
@@ -182,6 +188,7 @@ declare const FunctionModel: import("mongoose").Model<{
             publicKey?: string | null | undefined;
             privateKey?: string | null | undefined;
         } | null | undefined;
+        ownerPublicKey?: string | null | undefined;
     } | null | undefined;
 }, import("mongoose").Document<unknown, {}, import("mongoose").FlatRecord<{
     name: string;
@@ -196,7 +203,7 @@ declare const FunctionModel: import("mongoose").Model<{
     kvPermission?: {
         enabled: boolean;
         allowedKeys: string[];
-        expiresAt?: NativeDate | null | undefined;
+        expiresAt?: number | null | undefined;
         delegationToken?: {
             allowedKeys: string[];
             expiresAt?: number | null | undefined;
@@ -207,6 +214,7 @@ declare const FunctionModel: import("mongoose").Model<{
             publicKey?: string | null | undefined;
             privateKey?: string | null | undefined;
         } | null | undefined;
+        ownerPublicKey?: string | null | undefined;
     } | null | undefined;
 }>, {}, import("mongoose").DefaultSchemaOptions> & import("mongoose").FlatRecord<{
     name: string;
@@ -221,7 +229,7 @@ declare const FunctionModel: import("mongoose").Model<{
     kvPermission?: {
         enabled: boolean;
         allowedKeys: string[];
-        expiresAt?: NativeDate | null | undefined;
+        expiresAt?: number | null | undefined;
         delegationToken?: {
             allowedKeys: string[];
             expiresAt?: number | null | undefined;
@@ -232,6 +240,7 @@ declare const FunctionModel: import("mongoose").Model<{
             publicKey?: string | null | undefined;
             privateKey?: string | null | undefined;
         } | null | undefined;
+        ownerPublicKey?: string | null | undefined;
     } | null | undefined;
 }> & {
     _id: import("mongoose").Types.ObjectId;

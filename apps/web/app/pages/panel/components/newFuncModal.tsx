@@ -119,6 +119,7 @@ export default function NewFuncModal({}: Readonly<{}>) {
           ownerSignature: bufferToBase64(ownerSigBuf),
         },
         functionIdentity: functionIdentityExport,
+        ownerPublicKey
       };
     }
 
