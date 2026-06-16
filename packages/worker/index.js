@@ -82,7 +82,7 @@ export class KvSdk {
 
 export async function runUserCodeInSES(sys, userCode, args, kvPermission) {
   // Yukarıdaki işlevsiz dış 'handler' kodları kaldırıldı.
-
+    console.log("ABC bum");
   const secureFetch = harden(async (url, options) => {
     // isPrivateOrInvalidIP metodunun bir yerlerde tanımlı olduğunu varsayıyoruz
     const isPrivateOrInvalid = isPrivateOrInvalidIP(new URL(url).hostname);
@@ -161,6 +161,7 @@ export async function runUserCodeInSES(sys, userCode, args, kvPermission) {
       data: finalResult,
     };
   } catch (error) {
+
     return {
       success: false,
       error: error.message,
