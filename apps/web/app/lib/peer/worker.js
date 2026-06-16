@@ -69,6 +69,7 @@ self.addEventListener("message", async (event) => {
     }
   } catch (error) {
     self.postMessage({
+      type: "RESULT",
       error: error.message || "Unknown error",
     });
   }

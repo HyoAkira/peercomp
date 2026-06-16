@@ -760,6 +760,11 @@ export class KademliaNode {
               }, 5000);
 
               // Worker'dan sonuç geldiğinde
+              worker.onerror = (err) => {
+                clearTimeout(timeout);
+                reject(new Error(err.message || "Worker error"));
+              };
+
               worker.onmessage = async (event) => {
                 clearTimeout(timeout);
                 // worker.terminate();
@@ -779,8 +784,10 @@ export class KademliaNode {
                     break;
                   }
                   case "STORAGE_GET_REQUEST": {
-                    const { kvPermission, key, reqId } = event.data.data;
-                    const value = await this.findValue(key); // KV verisini bul
+                    const { kvPermission, key } = event.data.data;
+                    const reqId = event.data.reqId;
+                    const v = await this.findValue(key); // KV verisini bul
+                    const value = JSON.parse(v.value)
                     worker.postMessage({
                       type: "STORAGE_GET_RESPONSE",
                       success: true,

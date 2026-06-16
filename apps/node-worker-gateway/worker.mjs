@@ -9,17 +9,21 @@ lockdown({
 
 parentPort.on(
   "message",
-  async ({ code, args, timeout = 15000, kvPermission }) => {
+  async (msg) => {
+    if (msg.type !== "EXECUTE") return;
+    const { code, args, timeout = 15000, kvPermission } = msg;
     try {
       const result = await runUserCodeInSES(parentPort, code, args, kvPermission, true);
     
       if (!result.success) throw new Error(result.error);
       parentPort.postMessage({
+        type: "RESULT",
         success: true,
         data: result.data,
       });
     } catch (error) {
       parentPort.postMessage({
+        type: "RESULT",
         error: error.message || "Unknown error",
       });
     }

@@ -181,14 +181,38 @@ function executeInWorker(code: string, args: any, kvPermission): Promise<any> {
       reject(new Error("Execution timeout"));
     }, 15000);
 
-    worker.on("message", (res) => {
-      clearTimeout(timeout);
-      worker.terminate();
+    worker.on("message", async (res) => {
+      if (res.type === "STORAGE_GET_REQUEST") {
+        try {
+          const { kvPermission, key } = res.data;
+          const reqId = res.reqId;
+          const v = await node.findValue(key);
+          const value = JSON.parse(v.value)
+          worker.postMessage({
+            type: "STORAGE_GET_RESPONSE",
+            success: true,
+            data: { key, value },
+            reqId: reqId,
+          });
+        } catch (err: any) {
+           worker.postMessage({
+            type: "STORAGE_GET_RESPONSE",
+            error: err.message,
+            reqId: res.reqId || res.data?.reqId
+           });
+        }
+        return;
+      }
 
-      if (!res.success) {
-        reject(new Error(res.error ?? "Unknown worker error"));
-      } else {
-        resolve(res);
+      if (res.type === "RESULT") {
+        clearTimeout(timeout);
+        worker.terminate();
+
+        if (!res.success) {
+          reject(new Error(res.error ?? "Unknown worker error"));
+        } else {
+          resolve(res);
+        }
       }
     });
 
@@ -198,6 +222,6 @@ function executeInWorker(code: string, args: any, kvPermission): Promise<any> {
       reject(err);
     });
 
-    worker.postMessage({ code, args, kvPermission });
+    worker.postMessage({ type: "EXECUTE", code, args, kvPermission });
   });
 }
