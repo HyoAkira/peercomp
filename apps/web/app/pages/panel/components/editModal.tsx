@@ -1,6 +1,8 @@
 import { api } from "@peercomp/config";
 import { bufferToBase64, IdentityKey } from "@peercomp/encryption/utils";
 import CodeEditor from "@uiw/react-textarea-code-editor"; // <-- Paket eklendi
+import { parse } from "acorn";
+import escodegen from "escodegen";
 import { useRef, useState } from "react";
 import { minify } from "terser";
 import {
@@ -84,22 +86,30 @@ export default function EditModalComponent({
 
     // 1) Kodu minify et
     let finalCode = inputCode;
-    const minifiedResult = await minify(inputCode, {
-      mangle: false,
-      parse: {
-        bare_returns: true,
-      },
-      compress: {
-        dead_code: true,
-        drop_debugger: true,
-        module: true,
-      },
-      format: {
-        comments: false,
-      },
-    });
-    if (minifiedResult && minifiedResult.code) {
-      finalCode = minifiedResult.code;
+    try {
+      const ast = parse(`async function __main__(){${inputCode}}`, {
+        ecmaVersion: "latest",
+      });
+      const block = (ast.body[0] as any).body.body;
+      const min = escodegen.generate(
+        { type: "Program", body: block },
+        { format: { compact: true } },
+      );
+      const minifiedResult = await minify(min, {
+        compress: false,
+        mangle: false,
+        format: { beautify: false },
+        parse: { bare_returns: true },
+      });
+      if (minifiedResult?.code) {
+        finalCode = minifiedResult.code;
+      }
+    } catch (error) {
+      console.log(error);
+      setAlertMsg("Hatalı kod formatı.");
+      setTimeout(() => setAlertMsg(""), 3000);
+      toggle.current?.click();
+      return;
     }
 
     // 2) KV payload kararı (3'lü mantık)
