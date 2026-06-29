@@ -3,10 +3,11 @@ const kvSchema = new Schema({
   key: { type: String, required: true },
   value: { type: String },
   isEncrypted: { type: Boolean, required: true },
-  encrypted: { type: Schema.Types.Buffer },
-  iv: { type: Schema.Types.Buffer },
+  iv: { type: String },
   metadata: {
     namespace: { type: String, required: true },
+    encryptedKey: { type: String },
+    keyIv: { type: String },
   },
   author: { type: String, ref: "User", required: true },
   type: { type: String, default: "kv" },

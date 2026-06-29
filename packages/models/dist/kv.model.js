@@ -5,10 +5,11 @@ const kvSchema = new mongoose_1.Schema({
     key: { type: String, required: true },
     value: { type: String },
     isEncrypted: { type: Boolean, required: true },
-    encrypted: { type: mongoose_1.Schema.Types.Buffer },
-    iv: { type: mongoose_1.Schema.Types.Buffer },
+    iv: { type: String },
     metadata: {
         namespace: { type: String, required: true },
+        encryptedKey: { type: String },
+        keyIv: { type: String },
     },
     author: { type: String, ref: "User", required: true },
     type: { type: String, default: "kv" },

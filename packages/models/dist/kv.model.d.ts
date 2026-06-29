@@ -6,10 +6,11 @@ declare const KVModel: import("mongoose").Model<{
     isEncrypted: boolean;
     metadata?: {
         namespace: string;
+        encryptedKey?: string | null | undefined;
+        keyIv?: string | null | undefined;
     } | null | undefined;
     value?: string | null | undefined;
-    encrypted?: Buffer<ArrayBufferLike> | null | undefined;
-    iv?: Buffer<ArrayBufferLike> | null | undefined;
+    iv?: string | null | undefined;
 }, {}, {}, {}, import("mongoose").Document<unknown, {}, {
     type: string;
     author: string;
@@ -17,10 +18,11 @@ declare const KVModel: import("mongoose").Model<{
     isEncrypted: boolean;
     metadata?: {
         namespace: string;
+        encryptedKey?: string | null | undefined;
+        keyIv?: string | null | undefined;
     } | null | undefined;
     value?: string | null | undefined;
-    encrypted?: Buffer<ArrayBufferLike> | null | undefined;
-    iv?: Buffer<ArrayBufferLike> | null | undefined;
+    iv?: string | null | undefined;
 }, {}, import("mongoose").DefaultSchemaOptions> & {
     type: string;
     author: string;
@@ -28,10 +30,11 @@ declare const KVModel: import("mongoose").Model<{
     isEncrypted: boolean;
     metadata?: {
         namespace: string;
+        encryptedKey?: string | null | undefined;
+        keyIv?: string | null | undefined;
     } | null | undefined;
     value?: string | null | undefined;
-    encrypted?: Buffer<ArrayBufferLike> | null | undefined;
-    iv?: Buffer<ArrayBufferLike> | null | undefined;
+    iv?: string | null | undefined;
 } & {
     _id: import("mongoose").Types.ObjectId;
 } & {
@@ -43,10 +46,11 @@ declare const KVModel: import("mongoose").Model<{
     isEncrypted: boolean;
     metadata?: {
         namespace: string;
+        encryptedKey?: string | null | undefined;
+        keyIv?: string | null | undefined;
     } | null | undefined;
     value?: string | null | undefined;
-    encrypted?: Buffer<ArrayBufferLike> | null | undefined;
-    iv?: Buffer<ArrayBufferLike> | null | undefined;
+    iv?: string | null | undefined;
 }, import("mongoose").Document<unknown, {}, import("mongoose").FlatRecord<{
     type: string;
     author: string;
@@ -54,10 +58,11 @@ declare const KVModel: import("mongoose").Model<{
     isEncrypted: boolean;
     metadata?: {
         namespace: string;
+        encryptedKey?: string | null | undefined;
+        keyIv?: string | null | undefined;
     } | null | undefined;
     value?: string | null | undefined;
-    encrypted?: Buffer<ArrayBufferLike> | null | undefined;
-    iv?: Buffer<ArrayBufferLike> | null | undefined;
+    iv?: string | null | undefined;
 }>, {}, import("mongoose").DefaultSchemaOptions> & import("mongoose").FlatRecord<{
     type: string;
     author: string;
@@ -65,10 +70,11 @@ declare const KVModel: import("mongoose").Model<{
     isEncrypted: boolean;
     metadata?: {
         namespace: string;
+        encryptedKey?: string | null | undefined;
+        keyIv?: string | null | undefined;
     } | null | undefined;
     value?: string | null | undefined;
-    encrypted?: Buffer<ArrayBufferLike> | null | undefined;
-    iv?: Buffer<ArrayBufferLike> | null | undefined;
+    iv?: string | null | undefined;
 }> & {
     _id: import("mongoose").Types.ObjectId;
 } & {
