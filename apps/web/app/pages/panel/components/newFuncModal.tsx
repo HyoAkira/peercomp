@@ -222,7 +222,7 @@ export default function NewFuncModal({}: Readonly<{}>) {
         message: string;
       } = await response.json();
       if (!data.error) {
-        setFunctions([...functions, data.data as any]);
+        setFunctions([...useFunctions.getState().functions, data.data as any]);
         toggle.current?.click();
         setAlertMsg("Fonksiyon başarıyla oluşturuldu.");
         setTimeout(() => {

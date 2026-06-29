@@ -9,7 +9,6 @@ export default function DeleteModalComponent({
   const node = usePeerNode((state) => state.peerNode);
   const token = useToken((state) => state.token);
   const setFunctions = useFunctions((state) => state.setFunctions);
-  const functions = useFunctions((state) => state.functions);
   async function handleDelete() {
     const url = `${api.baseURL}${api.apiURL}functions/${functionId}`;
     const options = {
@@ -23,7 +22,7 @@ export default function DeleteModalComponent({
       const response = await fetch(url, options);
       const data = await response.json();
       if (!data.error) {
-        setFunctions(functions.filter((func) => func._id !== functionId));
+        setFunctions(useFunctions.getState().functions.filter((func) => func._id !== functionId));
         if (node) {
           const payload = data.data;
 

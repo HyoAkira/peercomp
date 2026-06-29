@@ -49,9 +49,8 @@ export default function EditModalComponent({
   const [inputEndpoint, setEndpoint] = useState(endpoint);
   const token = useToken((state) => state.token);
   const setAlertMsg = useAlertMsg((state) => state.setAlertMsg);
-  const functions = useFunctions((state) => state.functions);
-  const toggle = useRef<HTMLInputElement>(null);
   const setFunctions = useFunctions((state) => state.setFunctions);
+  const toggle = useRef<HTMLInputElement>(null);
   const node = usePeerNode((state) => state.peerNode);
   const [inputMethod, setMethod] = useState<FunctionMethod>(
     method as FunctionMethod,
@@ -201,7 +200,7 @@ export default function EditModalComponent({
         );
       }
       setFunctions(
-        functions.map((func) => (func._id === functionId ? data.data : func)),
+        useFunctions.getState().functions.map((func) => (func._id === functionId ? data.data : func)),
       );
 
       toggle.current?.click();
