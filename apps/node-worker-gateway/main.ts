@@ -186,26 +186,34 @@ function executeInWorker(code: string, args: any, kvPermission): Promise<any> {
         try {
           const { key } = res.data;
           const reqId = res.reqId;
+          console.log(`[KV GET] İstek alındı: key=${key}`);
           const { data: v, fromNodeId } = await node.findValue(key);
+          console.log(`[KV GET] findValue sonucu: isEncrypted=${v?.isEncrypted}, fromNodeId=${fromNodeId}, hasEncryptedKey=${!!v?.metadata?.encryptedKey}`);
           let value: any = v;
 
           if (v?.isEncrypted && v?.iv && v?.metadata?.encryptedKey && fromNodeId) {
             try {
+              console.log(`[KV GET] Şifreli veri — delegation key isteniyor: fromNodeId=${fromNodeId}`);
               const { generateECDHKeyPair, unwrapDelegationKey, decryptKvValue } = await import("@peercomp/encryption/utils");
               const ephemeralEcdh = await generateECDHKeyPair();
-              const res = await node._sendRPC(fromNodeId, {
+              const delegRes = await node._sendRPC(fromNodeId, {
                 type: "REQUEST_DELEGATION_KEY",
                 kvKey: key,
                 requesterECDHPublicKey: ephemeralEcdh.publicKey,
               });
-              if (res && !res.error && res.data?.delegation) {
-                const dataKey = await unwrapDelegationKey(res.data.delegation, ephemeralEcdh.privateKey);
+              console.log(`[KV GET] Delegation key yanıtı: error=${delegRes?.error}, hasDelegation=${!!delegRes?.data?.delegation}`);
+              if (delegRes && !delegRes.error && delegRes.data?.delegation) {
+                const dataKey = await unwrapDelegationKey(delegRes.data.delegation, ephemeralEcdh.privateKey);
                 value = await decryptKvValue(v.value, v.iv, dataKey);
+                console.log(`[KV GET] Veri başarıyla çözüldü.`);
+              } else {
+                console.warn(`[KV GET] Delegation key alınamadı, şifreli veri döndürülüyor.`);
               }
             } catch (decryptErr) {
-              console.error("[GATEWAY] KV decrypt failed:", decryptErr);
+              console.error("[KV GET] Decrypt hatası:", decryptErr);
             }
           } else if (v?.value !== undefined) {
+            console.log(`[KV GET] Plaintext veri — doğrudan parse ediliyor.`);
             try { value = JSON.parse(v.value); } catch { value = v.value; }
           }
 

@@ -790,6 +790,7 @@ export class KademliaNode {
                     const { kvPermission, key } = event.data.data;
                     const reqId = event.data.reqId;
                     const { data: v, fromNodeId } = await this.findValue(key);
+                    console.log(`[KV GET] key=${key} isEncrypted=${v?.isEncrypted} fromNodeId=${fromNodeId} hasEncryptedKey=${!!v?.metadata?.encryptedKey}`);
                     let value: any = v;
 
                     if (v?.isEncrypted && v?.iv && v?.metadata?.encryptedKey) {
@@ -801,24 +802,30 @@ export class KademliaNode {
 
                         // Veriyi hangi node'dan aldıysak ona sor; local ise kendi callback'e sor
                         if (fromNodeId) {
+                          console.log(`[KV GET] Delegation key isteniyor → ${fromNodeId}`);
                           const res = await this._sendRPC(fromNodeId, {
                             type: "REQUEST_DELEGATION_KEY",
                             kvKey: key,
                             requesterECDHPublicKey: ephemeralEcdh.publicKey,
                           });
+                          console.log(`[KV GET] Delegation yanıtı: error=${res?.error} hasDelegation=${!!(res?.data as any)?.delegation}`);
                           if (res && !res.error && res.data && (res.data as any).delegation) {
                             delegation = (res.data as any).delegation as DelegationKey;
                           }
                         } else if (this.onDelegationKeyRequest) {
+                          console.log(`[KV GET] Local — kendi onDelegationKeyRequest callback'i çağrılıyor.`);
                           delegation = await this.onDelegationKeyRequest(key, ephemeralEcdh.publicKey);
                         }
 
                         if (delegation) {
                           const dataKey = await unwrapDelegationKey(delegation, ephemeralEcdh.privateKey);
                           value = await dec(v.value, v.iv, dataKey);
+                          console.log(`[KV GET] Veri başarıyla çözüldü.`);
+                        } else {
+                          console.warn(`[KV GET] Delegation key alınamadı.`);
                         }
                       } catch (e) {
-                        console.error("[STORAGE_GET_REQUEST] Decryption failed:", e);
+                        console.error("[KV GET] Decrypt hatası:", e);
                       }
                     } else if (v?.value !== undefined) {
                       try { value = JSON.parse(v.value); } catch { value = v.value; }
