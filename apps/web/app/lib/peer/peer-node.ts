@@ -362,26 +362,6 @@ export class KademliaNode {
     await this.storage.deleteAsync(key); // Kendinde de sil
   }
 
-  /** Veri sahibinden DHT üzerinden delegation key ister. */
-  async requestDelegationKey(kvKey: string, requesterECDHPublicKey: string): Promise<DelegationKey | null> {
-    const hashedKey = await hashKey(kvKey);
-    const nearest = this._findClosestLocal(hashedKey, K);
-    for (const node of nearest) {
-      const res = await this._sendRPC(node.id, {
-        type: "REQUEST_DELEGATION_KEY",
-        kvKey,
-        requesterECDHPublicKey,
-      });
-      if (res && !res.error && res.data && (res.data as any).delegation) {
-        return (res.data as any).delegation as DelegationKey;
-      }
-    }
-    // Yerel node'da da dene (sahip kendisi)
-    if (this.onDelegationKeyRequest) {
-      return this.onDelegationKeyRequest(kvKey, requesterECDHPublicKey);
-    }
-    return null;
-  }
   async _lookup(targetId: string, isValueLookup: boolean = false) {
     // actualTarget: XOR mesafe hesabında kullanılacak hex ID.
     // Value lookup'ta ham key değil, hash'i kullanılmalı.
@@ -454,7 +434,7 @@ export class KademliaNode {
         }
       }
 
-      if (foundValue) return { value: foundValue };
+      if (foundValue) return { value: foundValue, fromNodeId: results.find(r => r.res?.data && "value" in (r.res.data as any))?.from ?? null };
 
       // 4. Durma Koşulu — FIX: actualTarget kullan
       const currentClosest = Array.from(shortlist.values()).sort((a, b) => {
@@ -544,18 +524,17 @@ export class KademliaNode {
   }
   // Değer ara
   // Değer ara (Güncellenmiş)
-  async findValue(key: string) {
+  async findValue(key: string): Promise<{ data: any; fromNodeId: string | null }> {
     const localValue = await this.storage.getAsync(key);
-    if (localValue !== undefined) return localValue;
+    if (localValue !== undefined) return { data: localValue, fromNodeId: null }; // null = local
 
     const result = await this._lookup(key, true);
 
     if (result && "value" in result) {
-      // Bulunan değeri yerel cache'e at (Kademlia kuralı)
       await this.storage.setAsync(key, result.value);
-      return result.value;
+      return { data: result.value, fromNodeId: (result as any).fromNodeId ?? null };
     }
-    return null;
+    return { data: null, fromNodeId: null };
   }
 
   // ---- İç Metodlar ----
@@ -730,7 +709,7 @@ export class KademliaNode {
 
       case "FUNCTION-CALL": {
         // find value ile fonksiyonun kendisi gelmeli, onu çalıştırıp sonucu döndürmeliyiz
-        const funcData: FunctionModelType = await this.findValue(msg.key);
+        const funcData: FunctionModelType = (await this.findValue(msg.key)).data;
         console.log(
           "FUNCTION-CALL message received for key:",
           msg.key,
@@ -810,15 +789,30 @@ export class KademliaNode {
                   case "STORAGE_GET_REQUEST": {
                     const { kvPermission, key } = event.data.data;
                     const reqId = event.data.reqId;
-                    const v = await this.findValue(key);
-                    let value: any = v?.value;
+                    const { data: v, fromNodeId } = await this.findValue(key);
+                    let value: any = v;
 
-                    if (v?.isEncrypted && v?.iv && v?.metadata?.encryptedKey && kvPermission?.functionIdentity) {
+                    if (v?.isEncrypted && v?.iv && v?.metadata?.encryptedKey) {
                       try {
                         const { generateECDHKeyPair, unwrapDelegationKey, decryptKvValue: dec } = await import("@peercomp/encryption/utils");
-                        // Fonksiyonun ephemeral ECDH key pair'i — her çağrıda üretilir
                         const ephemeralEcdh = await generateECDHKeyPair();
-                        const delegation = await this.requestDelegationKey(key, ephemeralEcdh.publicKey);
+
+                        let delegation: DelegationKey | null = null;
+
+                        // Veriyi hangi node'dan aldıysak ona sor; local ise kendi callback'e sor
+                        if (fromNodeId) {
+                          const res = await this._sendRPC(fromNodeId, {
+                            type: "REQUEST_DELEGATION_KEY",
+                            kvKey: key,
+                            requesterECDHPublicKey: ephemeralEcdh.publicKey,
+                          });
+                          if (res && !res.error && res.data && (res.data as any).delegation) {
+                            delegation = (res.data as any).delegation as DelegationKey;
+                          }
+                        } else if (this.onDelegationKeyRequest) {
+                          delegation = await this.onDelegationKeyRequest(key, ephemeralEcdh.publicKey);
+                        }
+
                         if (delegation) {
                           const dataKey = await unwrapDelegationKey(delegation, ephemeralEcdh.privateKey);
                           value = await dec(v.value, v.iv, dataKey);
@@ -826,8 +820,8 @@ export class KademliaNode {
                       } catch (e) {
                         console.error("[STORAGE_GET_REQUEST] Decryption failed:", e);
                       }
-                    } else if (value && typeof value === "string") {
-                      try { value = JSON.parse(value); } catch { /* plaintext */ }
+                    } else if (v?.value !== undefined) {
+                      try { value = JSON.parse(v.value); } catch { value = v.value; }
                     }
 
                     worker.postMessage({
