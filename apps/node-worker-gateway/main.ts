@@ -184,10 +184,31 @@ function executeInWorker(code: string, args: any, kvPermission): Promise<any> {
     worker.on("message", async (res) => {
       if (res.type === "STORAGE_GET_REQUEST") {
         try {
-          const { kvPermission, key } = res.data;
+          const { key } = res.data;
           const reqId = res.reqId;
-          const v = await node.findValue(key);
-          const value = JSON.parse(v.value)
+          const { data: v, fromNodeId } = await node.findValue(key);
+          let value: any = v;
+
+          if (v?.isEncrypted && v?.iv && v?.metadata?.encryptedKey && fromNodeId) {
+            try {
+              const { generateECDHKeyPair, unwrapDelegationKey, decryptKvValue } = await import("@peercomp/encryption/utils");
+              const ephemeralEcdh = await generateECDHKeyPair();
+              const res = await node._sendRPC(fromNodeId, {
+                type: "REQUEST_DELEGATION_KEY",
+                kvKey: key,
+                requesterECDHPublicKey: ephemeralEcdh.publicKey,
+              });
+              if (res && !res.error && res.data?.delegation) {
+                const dataKey = await unwrapDelegationKey(res.data.delegation, ephemeralEcdh.privateKey);
+                value = await decryptKvValue(v.value, v.iv, dataKey);
+              }
+            } catch (decryptErr) {
+              console.error("[GATEWAY] KV decrypt failed:", decryptErr);
+            }
+          } else if (v?.value !== undefined) {
+            try { value = JSON.parse(v.value); } catch { value = v.value; }
+          }
+
           worker.postMessage({
             type: "STORAGE_GET_RESPONSE",
             success: true,

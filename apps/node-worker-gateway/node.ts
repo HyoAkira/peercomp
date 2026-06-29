@@ -564,16 +564,17 @@ export class GatewayNode {
 
   // ── Genel API ────────────────────────────────────────────────────────────────
 
-  async findValue(key: string): Promise<any | null> {
+  async findValue(key: string): Promise<{ data: any; fromNodeId: string | null }> {
     // const local = await this.storage.getAsync(key);
     const local = undefined;
-    if (local !== undefined) return local;
+    if (local !== undefined) return { data: local, fromNodeId: null };
 
     const nearest = this._findClosest(hashKey(key), this.ALPHA);
-    if (nearest.length === 0) return null;
+    if (nearest.length === 0) return { data: null, fromNodeId: null };
 
-    const res = await this._sendRPC(nearest[0], { type: "FIND_VALUE", key });
-    return res?.data?.value ?? null;
+    const fromNodeId = nearest[0];
+    const res = await this._sendRPC(fromNodeId, { type: "FIND_VALUE", key });
+    return { data: res?.data?.value ?? null, fromNodeId: res?.data?.value != null ? fromNodeId : null };
   }
 
   // async store(key: string, value: any): Promise<void> {
