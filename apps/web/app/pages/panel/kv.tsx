@@ -1,7 +1,7 @@
 import { api } from "@peercomp/config";
-import { useEffect } from "react";
-import { bufferToBase64, IdentityKey } from "@peercomp/encryption/utils";
-import { useIdentityKey, useKv, useToken } from "~/lib/store";
+import React, { useEffect } from "react";
+import { decryptKvValue, IdentityKey, unwrapOwnDataKey, wrapKeyForDelegation } from "@peercomp/encryption/utils";
+import { useIdentityKey, useKv, usePeerNode, useToken } from "~/lib/store";
 import DeleteStorageModalComponent from "./components/deleteStorageModal";
 import EditStorageModalComponent from "./components/editStorageModal";
 import icons from "./components/icons";
@@ -12,30 +12,38 @@ export default function StoragePage() {
   const setKv = useKv((state) => state.setKv);
   const token = useToken((state) => state.token);
   const keyPair = useIdentityKey((state) => state.keyPair);
+  const ecdhKeyPair = useIdentityKey((state) => state.ecdhKeyPair);
+  const node = usePeerNode((state) => state.peerNode);
+
+  // onDelegationKeyRequest — sahip tarayıcısında çalışır, isteyen node'a delegation key verir
+  useEffect(() => {
+    if (!node || !keyPair || !ecdhKeyPair) return;
+    node.onDelegationKeyRequest = async (kvKey, requesterECDHPublicKey) => {
+      // Şifreli KV kaydını bul (store'dan)
+      const entry = kv.find((item) => item.key === kvKey);
+      if (!entry || !entry.isEncrypted || !entry.metadata?.encryptedKey) return null;
+      try {
+        const dataKey = await unwrapOwnDataKey(
+          entry.metadata.encryptedKey,
+          entry.metadata.keyIv,
+          ecdhKeyPair.privateKey,
+        );
+        const owner = await IdentityKey.import(keyPair);
+        return wrapKeyForDelegation(dataKey, requesterECDHPublicKey, owner, 10_000);
+      } catch {
+        return null;
+      }
+    };
+  }, [node, keyPair, ecdhKeyPair, kv]);
+
   useEffect(() => {
     (async () => {
       if (!token) return;
       const url = `${api.baseURL}${api.apiURL}kv/author/me`;
-      const options = {
-        method: "GET",
-        headers: {
-          authorization: `Bearer ${token}`,
-        },
-      };
-
       try {
-        const response = await fetch(url, options);
+        const response = await fetch(url, { method: "GET", headers: { authorization: `Bearer ${token}` } });
         const data = await response.json();
         if (!data.error) setKv(data.data);
-        // encryption baslangic
-        if (keyPair && data.data) {
-          const owner = await IdentityKey.import(keyPair);
-          const ownerSigBuf = await owner.sign(JSON.stringify(data.data));
-          const signedValueByOwner = {
-            payload: data.data,
-            ownerSignature: bufferToBase64(ownerSigBuf),
-          };
-        }
       } catch (error) {
         console.error("Error fetching KV data:", error);
       }
@@ -44,19 +52,16 @@ export default function StoragePage() {
 
   return (
     <main className="flex flex-col">
-      {/* HEADER */}
       <div className="flex justify-between items-center mb-4">
         <div>
           <h1 className="text-2xl font-bold">K&V Veritabanı</h1>
         </div>
-
         <label htmlFor="storage_modal" className="btn btn-primary">
           Yeni Kayıt
         </label>
         <NewStorageModal />
       </div>
 
-      {/* TABLE */}
       <div className="list rounded-box shadow-md">
         {kv.map((item) => (
           <StorageItem
@@ -68,6 +73,20 @@ export default function StoragePage() {
             iv={item.iv}
             metadata={item.metadata}
             author={item.author}
+            onDecrypt={async () => {
+              if (!ecdhKeyPair || !item.isEncrypted || !item.metadata?.encryptedKey) return null;
+              try {
+                const dataKey = await unwrapOwnDataKey(
+                  item.metadata.encryptedKey,
+                  item.metadata.keyIv,
+                  ecdhKeyPair.privateKey,
+                );
+                return decryptKvValue(item.value, item.iv, dataKey);
+              } catch (e) {
+                console.error("Decrypt failed:", e);
+                return null;
+              }
+            }}
           />
         ))}
       </div>
@@ -83,6 +102,7 @@ function StorageItem({
   iv,
   metadata,
   author,
+  onDecrypt,
 }: {
   id: string;
   variableKey: string;
@@ -91,37 +111,55 @@ function StorageItem({
   iv: string;
   metadata: any;
   author: string;
+  onDecrypt?: () => Promise<string | null>;
 }) {
+  const [decryptedValue, setDecryptedValue] = React.useState<string | null>(null);
+  const [decrypting, setDecrypting] = React.useState(false);
+
+  async function handleDecrypt() {
+    if (!onDecrypt) return;
+    setDecrypting(true);
+    const result = await onDecrypt();
+    setDecryptedValue(result ?? "❌ Çözülemedi");
+    setDecrypting(false);
+  }
+
   return (
     <li className="list-row items-center">
-      {/* ID */}
       <div className="text-xs font-mono opacity-50">{id}</div>
 
-      {/* KEY */}
       <div className="list-col-grow">
         <div className="font-medium font-mono">{variableKey}</div>
-
-        <div className="text-xs opacity-60 truncate max-w-[600px]">{value}</div>
+        {isEncrypted && !decryptedValue ? (
+          <div className="text-xs opacity-60 font-mono">🔒 [Şifreli]</div>
+        ) : (
+          <div className="text-xs opacity-60 truncate max-w-[600px] font-mono">
+            {decryptedValue ?? value}
+          </div>
+        )}
       </div>
 
-      {/* ACTIONS */}
       <div className="flex gap-1">
-        {/* EDIT */}
+        {isEncrypted && (
+          <div className="tooltip tooltip-top" data-tip="Şifreyi Çöz">
+            <button
+              className="btn btn-square btn-ghost"
+              onClick={handleDecrypt}
+              disabled={decrypting}
+            >
+              {decrypting ? "⏳" : "🔓"}
+            </button>
+          </div>
+        )}
+
         <div className="tooltip tooltip-top" data-tip="Düzenle">
-          <label
-            htmlFor={`storage_modal_${id}`}
-            className="btn btn-square btn-ghost"
-          >
+          <label htmlFor={`storage_modal_${id}`} className="btn btn-square btn-ghost">
             {icons.edit}
           </label>
         </div>
 
-        {/* DELETE */}
         <div className="tooltip tooltip-top" data-tip="Sil">
-          <label
-            htmlFor={`delete_modal_${id}`}
-            className="btn btn-square btn-ghost text-error"
-          >
+          <label htmlFor={`delete_modal_${id}`} className="btn btn-square btn-ghost text-error">
             {icons.trash}
           </label>
           <DeleteStorageModalComponent kvId={id} />

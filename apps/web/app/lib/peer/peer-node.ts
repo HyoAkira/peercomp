@@ -3,6 +3,7 @@ import {
   bufferToBase64,
   IdentityKey,
   validateP2PWriteRequest,
+  type DelegationKey,
   type SignedValue,
 } from "@peercomp/encryption/utils";
 import Peer from "peerjs";
@@ -245,6 +246,7 @@ export class KademliaNode {
   connections: Map<any, any>;
   peer: Peer;
   handlers: {};
+  onDelegationKeyRequest?: (kvKey: string, requesterECDHPublicKey: string) => Promise<DelegationKey | null>;
   // publicKey: CryptoKey;
   constructor(id?: string) {
     this.id = id || generateNodeId();
@@ -358,6 +360,27 @@ export class KademliaNode {
     );
     await Promise.allSettled(promises);
     await this.storage.deleteAsync(key); // Kendinde de sil
+  }
+
+  /** Veri sahibinden DHT üzerinden delegation key ister. */
+  async requestDelegationKey(kvKey: string, requesterECDHPublicKey: string): Promise<DelegationKey | null> {
+    const hashedKey = await hashKey(kvKey);
+    const nearest = this._findClosestLocal(hashedKey, K);
+    for (const node of nearest) {
+      const res = await this._sendRPC(node.id, {
+        type: "REQUEST_DELEGATION_KEY",
+        kvKey,
+        requesterECDHPublicKey,
+      });
+      if (res && !res.error && res.data && (res.data as any).delegation) {
+        return (res.data as any).delegation as DelegationKey;
+      }
+    }
+    // Yerel node'da da dene (sahip kendisi)
+    if (this.onDelegationKeyRequest) {
+      return this.onDelegationKeyRequest(kvKey, requesterECDHPublicKey);
+    }
+    return null;
   }
   async _lookup(targetId: string, isValueLookup: boolean = false) {
     // actualTarget: XOR mesafe hesabında kullanılacak hex ID.
@@ -593,7 +616,8 @@ export class KademliaNode {
       | { type: "STORE"; key: any; value: any }
       | { type: "FUNCTION-CALL"; key: any }
       | { type: "DELETE"; key: any }
-      | { type: "STORE_WITH_SIGNATURE"; key: any; value: any; signature: any },
+      | { type: "STORE_WITH_SIGNATURE"; key: any; value: any; signature: any }
+      | { type: "REQUEST_DELEGATION_KEY"; kvKey: string; requesterECDHPublicKey: string },
   ): Promise<RPCResult | null> {
     const conn = await this._connect(peerId);
     if (!conn) return null;
@@ -786,8 +810,26 @@ export class KademliaNode {
                   case "STORAGE_GET_REQUEST": {
                     const { kvPermission, key } = event.data.data;
                     const reqId = event.data.reqId;
-                    const v = await this.findValue(key); // KV verisini bul
-                    const value = JSON.parse(v.value)
+                    const v = await this.findValue(key);
+                    let value: any = v?.value;
+
+                    if (v?.isEncrypted && v?.iv && v?.metadata?.encryptedKey && kvPermission?.functionIdentity) {
+                      try {
+                        const { generateECDHKeyPair, unwrapDelegationKey, decryptKvValue: dec } = await import("@peercomp/encryption/utils");
+                        // Fonksiyonun ephemeral ECDH key pair'i — her çağrıda üretilir
+                        const ephemeralEcdh = await generateECDHKeyPair();
+                        const delegation = await this.requestDelegationKey(key, ephemeralEcdh.publicKey);
+                        if (delegation) {
+                          const dataKey = await unwrapDelegationKey(delegation, ephemeralEcdh.privateKey);
+                          value = await dec(v.value, v.iv, dataKey);
+                        }
+                      } catch (e) {
+                        console.error("[STORAGE_GET_REQUEST] Decryption failed:", e);
+                      }
+                    } else if (value && typeof value === "string") {
+                      try { value = JSON.parse(value); } catch { /* plaintext */ }
+                    }
+
                     worker.postMessage({
                       type: "STORAGE_GET_RESPONSE",
                       success: true,
@@ -875,8 +917,20 @@ export class KademliaNode {
         // Gateway'e veya isteği atan peer'a yanıt dönen lojiktir muhtemelen (break vb.)
         break;
       }
-      case "STORE_WITH_SIGNATURE": {
-        const { key, value, signature } = msg;
+      case "REQUEST_DELEGATION_KEY": {
+        if (!this.onDelegationKeyRequest) {
+          result = { code: 404, message: "Not owner", error: true, data: null };
+          break;
+        }
+        const delegation = await this.onDelegationKeyRequest(msg.kvKey, msg.requesterECDHPublicKey);
+        if (!delegation) {
+          result = { code: 404, message: "Delegation unavailable", error: true, data: null };
+        } else {
+          result = { code: 200, message: "OK", error: false, data: { delegation } };
+        }
+        break;
+      }
+      case "STORE_WITH_SIGNATURE": {        const { key, value, signature } = msg;
         const payload = JSON.parse(value.payload);
         const targetNamespace = payload.metadata.namespace;
         const actualKey = payload.method

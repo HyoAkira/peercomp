@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 import { KademliaNode } from "~/lib/peer/peer-node";
-import type { SerializedIdentityKey } from "@peercomp/encryption/utils";
+import type { SerializedIdentityKey, SerializedECDHKey } from "@peercomp/encryption/utils";
 type TokenStore = {
   token: string;
   setToken: (token: string) => void;
@@ -22,6 +22,8 @@ const useToken = create<TokenStore>()(
 type IdentityKeyStore = {
   keyPair: SerializedIdentityKey | null;
   setKeyPair: (keyPair: SerializedIdentityKey | null) => void;
+  ecdhKeyPair: SerializedECDHKey | null;
+  setEcdhKeyPair: (ecdhKeyPair: SerializedECDHKey | null) => void;
 };
 
 const useIdentityKey = create<IdentityKeyStore>()(
@@ -29,6 +31,8 @@ const useIdentityKey = create<IdentityKeyStore>()(
     (set) => ({
       keyPair: null as SerializedIdentityKey | null,
       setKeyPair: (keyPair: SerializedIdentityKey | null) => set({ keyPair }),
+      ecdhKeyPair: null as SerializedECDHKey | null,
+      setEcdhKeyPair: (ecdhKeyPair: SerializedECDHKey | null) => set({ ecdhKeyPair }),
     }),
     {
       name: "identity-key-storage",

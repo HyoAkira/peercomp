@@ -1,5 +1,5 @@
 import { api } from "@peercomp/config";
-import { bufferToBase64, IdentityKey } from "@peercomp/encryption/utils";
+import { bufferToBase64, encryptKvValue, generateECDHKeyPair, IdentityKey } from "@peercomp/encryption/utils";
 import { useRef } from "react";
 import {
   useAlertMsg,
@@ -39,6 +39,8 @@ export default function EditStorageModalComponent({
   const setAlertMsg = useAlertMsg((state) => state.setAlertMsg);
   const node = usePeerNode((state) => state.peerNode);
   const keyPair = useIdentityKey((state) => state.keyPair);
+  const ecdhKeyPair = useIdentityKey((state) => state.ecdhKeyPair);
+  const setEcdhKeyPair = useIdentityKey((state) => state.setEcdhKeyPair);
   async function handleSave(
     event: MouseEvent<HTMLButtonElement, MouseEvent>,
   ): Promise<void> {
@@ -57,13 +59,35 @@ export default function EditStorageModalComponent({
       isEncrypted: encryptToggleRef.current?.checked,
     };
     try {
+      let activeEcdhKeyPair = ecdhKeyPair;
+      if (!activeEcdhKeyPair) {
+        activeEcdhKeyPair = await generateECDHKeyPair();
+        setEcdhKeyPair(activeEcdhKeyPair);
+      }
+
+      let bodyValue = userInput.value;
+      let encryptionMeta: Record<string, string> = {};
+
+      if (userInput.isEncrypted) {
+        const enc = await encryptKvValue(bodyValue, activeEcdhKeyPair.publicKey);
+        bodyValue = enc.ciphertext;
+        encryptionMeta = { iv: enc.iv, encryptedKey: enc.encryptedKey, keyIv: enc.keyIv };
+      }
+
       const response = await fetch(`${api.baseURL}${api.apiURL}kv/${kvId}`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify(userInput),
+        body: JSON.stringify({
+          ...userInput,
+          value: bodyValue,
+          iv: encryptionMeta.iv ?? "",
+          metadata: userInput.isEncrypted
+            ? { encryptedKey: encryptionMeta.encryptedKey, keyIv: encryptionMeta.keyIv }
+            : undefined,
+        }),
       });
 
       const data = await response.json();

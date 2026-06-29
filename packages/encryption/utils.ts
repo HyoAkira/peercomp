@@ -450,3 +450,195 @@ export async function validateP2PWriteRequest(
   // Bütün kontrollerden geçti!
   return true; 
 }
+
+// ─────────────────────────────────────────────
+// 6. KV Şifreleme — Delegation Key Sistemi
+// ─────────────────────────────────────────────
+
+export interface SerializedECDHKey {
+  publicKey: string;  // base64 SPKI
+  privateKey: string; // base64 PKCS8
+}
+
+/** Decrypt yetkisi devir paketi — owner tarafından imzalanır, 10s TTL */
+export interface DelegationKey {
+  wrappedKey: string;    // base64 — AES-GCM data key, AES-KW ile sarmalanmış
+  iv: string;            // base64 — sarmalama IV (AES-GCM ile sarmalandıysa)
+  expiresAt: number;     // Unix ms
+  ownerSignature: string;// base64
+}
+
+/** ECDH P-256 key pair üret (KV şifreleme için, ECDSA'dan ayrı) */
+export async function generateECDHKeyPair(): Promise<SerializedECDHKey> {
+  const pair = await crypto.subtle.generateKey(
+    { name: "ECDH", namedCurve: "P-256" },
+    true,
+    ["deriveKey", "deriveBits"]
+  );
+  const [spki, pkcs8] = await Promise.all([
+    crypto.subtle.exportKey("spki", pair.publicKey),
+    crypto.subtle.exportKey("pkcs8", pair.privateKey),
+  ]);
+  return { publicKey: bufferToBase64(spki), privateKey: bufferToBase64(pkcs8) };
+}
+
+async function importECDHPublicKey(spkiBase64: string): Promise<CryptoKey> {
+  return crypto.subtle.importKey(
+    "spki", base64ToBuffer(spkiBase64),
+    { name: "ECDH", namedCurve: "P-256" }, true, []
+  );
+}
+
+async function importECDHPrivateKey(pkcs8Base64: string): Promise<CryptoKey> {
+  return crypto.subtle.importKey(
+    "pkcs8", base64ToBuffer(pkcs8Base64),
+    { name: "ECDH", namedCurve: "P-256" }, true, ["deriveKey", "deriveBits"]
+  );
+}
+
+/** Değeri rastgele AES-GCM key ile şifreler; key'i owner'ın ECDH public key'iyle ECDH+AES-KW ile sarar */
+export async function encryptKvValue(
+  value: string,
+  ownerECDHPublicKeySPKI: string
+): Promise<{ ciphertext: string; iv: string; encryptedKey: string; keyIv: string }> {
+  // 1. Tek kullanımlık AES-256-GCM data key
+  const dataKey = await crypto.subtle.generateKey(
+    { name: "AES-GCM", length: 256 }, true, ["encrypt"]
+  );
+
+  // 2. Value şifrele
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const ciphertext = await crypto.subtle.encrypt(
+    { name: "AES-GCM", iv }, dataKey, new TextEncoder().encode(value)
+  );
+
+  // 3. Data key'i owner'ın ECDH public key'iyle bir ECDH paylaşımlı sır ile sar
+  const ownerPub = await importECDHPublicKey(ownerECDHPublicKeySPKI);
+  // Ephemeral ECDH pair — wrap için
+  const ephemeral = await crypto.subtle.generateKey(
+    { name: "ECDH", namedCurve: "P-256" }, true, ["deriveKey"]
+  );
+  const wrapKey = await crypto.subtle.deriveKey(
+    { name: "ECDH", public: ownerPub },
+    ephemeral.privateKey,
+    { name: "AES-GCM", length: 256 }, false, ["encrypt"]
+  );
+  const keyIvBytes = crypto.getRandomValues(new Uint8Array(12));
+  const rawDataKey = await crypto.subtle.exportKey("raw", dataKey);
+  const encryptedKeyBuf = await crypto.subtle.encrypt(
+    { name: "AES-GCM", iv: keyIvBytes }, wrapKey, rawDataKey
+  );
+  const ephemeralPubRaw = await crypto.subtle.exportKey("raw", ephemeral.publicKey);
+
+  // encryptedKey = ephemeralPub(65B) + ciphertext, pipe ile birleştir
+  const combined = new Uint8Array(65 + encryptedKeyBuf.byteLength);
+  combined.set(new Uint8Array(ephemeralPubRaw), 0);
+  combined.set(new Uint8Array(encryptedKeyBuf), 65);
+
+  return {
+    ciphertext: bufferToBase64(ciphertext),
+    iv: bufferToBase64(iv),
+    encryptedKey: bufferToBase64(combined.buffer),
+    keyIv: bufferToBase64(keyIvBytes),
+  };
+}
+
+/** Owner'ın kendi ECDH private key'i ile data key'i açar (kendi verisi için) */
+export async function unwrapOwnDataKey(
+  encryptedKey: string,
+  keyIv: string,
+  ownerECDHPrivateKeyPKCS8: string
+): Promise<CryptoKey> {
+  const combined = new Uint8Array(base64ToBuffer(encryptedKey));
+  const ephemeralPubRaw = combined.slice(0, 65);
+  const wrappedKey = combined.slice(65);
+
+  const ownerPriv = await importECDHPrivateKey(ownerECDHPrivateKeyPKCS8);
+  const ephemeralPub = await crypto.subtle.importKey(
+    "raw", ephemeralPubRaw, { name: "ECDH", namedCurve: "P-256" }, true, []
+  );
+  const wrapKey = await crypto.subtle.deriveKey(
+    { name: "ECDH", public: ephemeralPub },
+    ownerPriv,
+    { name: "AES-GCM", length: 256 }, false, ["decrypt"]
+  );
+  const rawDataKey = await crypto.subtle.decrypt(
+    { name: "AES-GCM", iv: new Uint8Array(base64ToBuffer(keyIv)) },
+    wrapKey, wrappedKey
+  );
+  return crypto.subtle.importKey("raw", rawDataKey, { name: "AES-GCM", length: 256 }, true, ["encrypt", "decrypt"]);
+}
+
+/** Owner: gelen requester'ın ECDH public key'i ile data key'i sarar, imzalı DelegationKey üretir */
+export async function wrapKeyForDelegation(
+  dataKey: CryptoKey,
+  requesterECDHPublicKeySPKI: string,
+  ownerIdentity: IdentityKey,
+  ttlMs = 10_000
+): Promise<DelegationKey> {
+  const requesterPub = await importECDHPublicKey(requesterECDHPublicKeySPKI);
+  const ephemeral = await crypto.subtle.generateKey(
+    { name: "ECDH", namedCurve: "P-256" }, true, ["deriveKey"]
+  );
+  const wrapKey = await crypto.subtle.deriveKey(
+    { name: "ECDH", public: requesterPub },
+    ephemeral.privateKey,
+    { name: "AES-GCM", length: 256 }, false, ["encrypt"]
+  );
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const rawDataKey = await crypto.subtle.exportKey("raw", dataKey);
+  const encryptedKeyBuf = await crypto.subtle.encrypt(
+    { name: "AES-GCM", iv }, wrapKey, rawDataKey
+  );
+  const ephemeralPubRaw = await crypto.subtle.exportKey("raw", ephemeral.publicKey);
+  const combined = new Uint8Array(65 + encryptedKeyBuf.byteLength);
+  combined.set(new Uint8Array(ephemeralPubRaw), 0);
+  combined.set(new Uint8Array(encryptedKeyBuf), 65);
+
+  const expiresAt = Date.now() + ttlMs;
+  const wrappedKey = bufferToBase64(combined.buffer);
+  const ivB64 = bufferToBase64(iv);
+  const sigBuf = await ownerIdentity.sign(`${wrappedKey}|${ivB64}|${expiresAt}`);
+
+  return { wrappedKey, iv: ivB64, expiresAt, ownerSignature: bufferToBase64(sigBuf) };
+}
+
+/** Requester: DelegationKey'i kendi ECDH private key'iyle açar, data key'i alır */
+export async function unwrapDelegationKey(
+  delegation: DelegationKey,
+  requesterECDHPrivateKeyPKCS8: string
+): Promise<CryptoKey> {
+  if (Date.now() > delegation.expiresAt) throw new Error("DelegationKey süresi dolmuş.");
+  const combined = new Uint8Array(base64ToBuffer(delegation.wrappedKey));
+  const ephemeralPubRaw = combined.slice(0, 65);
+  const wrappedKey = combined.slice(65);
+
+  const requesterPriv = await importECDHPrivateKey(requesterECDHPrivateKeyPKCS8);
+  const ephemeralPub = await crypto.subtle.importKey(
+    "raw", ephemeralPubRaw, { name: "ECDH", namedCurve: "P-256" }, true, []
+  );
+  const wrapKey = await crypto.subtle.deriveKey(
+    { name: "ECDH", public: ephemeralPub },
+    requesterPriv,
+    { name: "AES-GCM", length: 256 }, false, ["decrypt"]
+  );
+  const rawDataKey = await crypto.subtle.decrypt(
+    { name: "AES-GCM", iv: new Uint8Array(base64ToBuffer(delegation.iv)) },
+    wrapKey, wrappedKey
+  );
+  return crypto.subtle.importKey("raw", rawDataKey, { name: "AES-GCM", length: 256 }, false, ["decrypt"]);
+}
+
+/** Şifreli value'yu çözer */
+export async function decryptKvValue(
+  ciphertext: string,
+  iv: string,
+  dataKey: CryptoKey
+): Promise<string> {
+  const plainBuf = await crypto.subtle.decrypt(
+    { name: "AES-GCM", iv: new Uint8Array(base64ToBuffer(iv)) },
+    dataKey,
+    base64ToBuffer(ciphertext)
+  );
+  return new TextDecoder().decode(plainBuf);
+}

@@ -1,5 +1,5 @@
 import { api } from "@peercomp/config";
-import { bufferToBase64, IdentityKey } from "@peercomp/encryption/utils";
+import { bufferToBase64, encryptKvValue, generateECDHKeyPair, IdentityKey } from "@peercomp/encryption/utils";
 import { useRef } from "react";
 import {
   useAlertMsg,
@@ -17,6 +17,8 @@ export default function NewStorageModal() {
   const setKv = useKv((state) => state.setKv);
   const toggle = useRef<HTMLInputElement>(null);
   const keyPair = useIdentityKey((state) => state.keyPair);
+  const ecdhKeyPair = useIdentityKey((state) => state.ecdhKeyPair);
+  const setEcdhKeyPair = useIdentityKey((state) => state.setEcdhKeyPair);
   const node = usePeerNode((state) => state.peerNode);
   const setAlertMsg = useAlertMsg((state) => state.setAlertMsg);
 
@@ -46,6 +48,22 @@ export default function NewStorageModal() {
         keyPair.publicKey,
       );
 
+      // Şifreleme: ecdhKeyPair yoksa üret ve persist et
+      let activeEcdhKeyPair = ecdhKeyPair;
+      if (!activeEcdhKeyPair) {
+        activeEcdhKeyPair = await generateECDHKeyPair();
+        setEcdhKeyPair(activeEcdhKeyPair);
+      }
+
+      let bodyValue = JSONSanitizeCode(val);
+      let encryptionMeta: Record<string, string> = {};
+
+      if (check) {
+        const enc = await encryptKvValue(bodyValue, activeEcdhKeyPair.publicKey);
+        bodyValue = enc.ciphertext;
+        encryptionMeta = { iv: enc.iv, encryptedKey: enc.encryptedKey, keyIv: enc.keyIv };
+      }
+
       const response = await fetch(`${api.baseURL}${api.apiURL}kv/create`, {
         method: "POST",
         headers: {
@@ -54,10 +72,12 @@ export default function NewStorageModal() {
         },
         body: JSON.stringify({
           key,
-          value: JSONSanitizeCode(val),
+          value: bodyValue,
           isEncrypted: check,
+          iv: encryptionMeta.iv ?? "",
           metadata: {
             namespace: targetNamespace,
+            ...(check ? { encryptedKey: encryptionMeta.encryptedKey, keyIv: encryptionMeta.keyIv } : {}),
           },
         }),
       });
