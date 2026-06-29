@@ -16,11 +16,12 @@ export function bufferToBase64(buf: ArrayBuffer): string {
 }
 
 export function base64ToBuffer(b64: string): ArrayBuffer {
-  //   console.log({
-  //   b64,
-  //   length:b64?.length,
-  //   chars:[...b64].filter(c=>!"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=".includes(c))
-  // });
+  console.log(b64)
+    console.log({
+    b64,
+    length:b64?.length,
+    chars:[...b64].filter(c=>!"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=".includes(c))
+  });
   const bin = atob(b64);
   const buf = new Uint8Array(bin.length);
   for (let i = 0; i < bin.length; i++) buf[i] = bin.charCodeAt(i);
@@ -182,6 +183,7 @@ export class IdentityKey {
    * SPKI Base64 formatındaki bir public key'den SHA-256 Namespace ID üretir.
    */
   static async calculateNamespace(spkiBase64: string): Promise<string> {
+    console.log("spki", spkiBase64);
     const keyBuffer = base64ToBuffer(spkiBase64);
     const hashBuffer = await crypto.subtle.digest("SHA-256", keyBuffer);
     return Array.from(new Uint8Array(hashBuffer))

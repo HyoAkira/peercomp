@@ -40,6 +40,7 @@ export class KvSdk {
   }
 
   async calculateAddress(key, signature) {
+    console.log("worker-signature", signature)
     const namespace = await IdentityKey.calculateNamespace(signature);
     return `${namespace}:kv:${key}`;
   }

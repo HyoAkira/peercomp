@@ -10,12 +10,16 @@
   },
   "dependencies": {
     "@peercomp/config": "workspace:*",
+    "@peercomp/encryption": "workspace:*",
+    "@peercomp/worker": "workspace:*",
     "@react-router/node": "7.14.0",
     "@react-router/serve": "7.14.0",
     "@uiw/react-textarea-code-editor": "^3.1.1",
+    "acorn": "^8.17.0",
     "daisyui": "^5.5.19",
     "dexie": "^4.4.2",
     "dexie-react-hooks": "^4.4.0",
+    "escodegen": "^2.1.0",
     "isbot": "^5.1.36",
     "peerjs": "^1.5.5",
     "quickjs-emscripten": "^0.32.0",
@@ -25,13 +29,12 @@
     "ses": "^2.1.0",
     "terser": "^5.48.0",
     "zod": "^4.4.3",
-    "zustand": "^5.0.12",
-    "@peercomp/encryption": "workspace:*",
-    "@peercomp/worker": "workspace:*"
+    "zustand": "^5.0.12"
   },
   "devDependencies": {
     "@react-router/dev": "7.14.0",
     "@tailwindcss/vite": "4.2.2",
+    "@types/escodegen": "^0.0.10",
     "@types/node": "^22",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",

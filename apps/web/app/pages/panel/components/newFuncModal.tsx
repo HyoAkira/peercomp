@@ -1,6 +1,8 @@
 import { api } from "@peercomp/config";
 import { bufferToBase64, IdentityKey } from "@peercomp/encryption/utils";
 import CodeEditor from "@uiw/react-textarea-code-editor"; // <-- Paket eklendi
+import { parse } from "acorn";
+import escodegen from "escodegen";
 import { useRef, useState } from "react";
 import { minify } from "terser";
 import {
@@ -48,27 +50,69 @@ export default function NewFuncModal({}: Readonly<{}>) {
       }, 3000);
       return;
     }
-   
+
     const url = `${api.baseURL}${api.apiURL}functions/create`;
     let finalCode = inputCode;
-    const minifiedResult = await minify(inputCode, {
-      mangle: false,
-      parse: {
-        bare_returns: true, // Return ifadelerinin etrafına süslü parantez eklemeden bırakır
-      },
-      compress: {
-        dead_code: true,
-        drop_debugger: true,
-        module: true,
-      },
-      format: {
-        comments: false, // Yorum satırlarını da silsin
-      },
-    });
+    //     let finalCode = `(async () => {
+    // ${inputCode}
+    // })();`;
+    try {
+      const ast = parse(`async function __main__(){${inputCode}}`, {
+        ecmaVersion: "latest",
+      });
+      console.log(ast);
+      const fn = ast.body[0]; // IIFE
+      const block = fn.body.body; // user code statements
+      console.log(fn, block);
 
-    if (minifiedResult && minifiedResult.code) {
-      finalCode = minifiedResult.code;
+      const newAst = {
+        type: "Program",
+        body: block,
+      };
+      const min = escodegen.generate(newAst, {
+        format: {
+          compact: true,
+        },
+      });
+
+      const minifiedResult = await minify(min, {
+        compress: false,
+        mangle: false,
+        format: {
+          beautify: false,
+        },
+        parse: {
+          bare_returns: true,
+        },
+        //   // mangle: false,
+        //   // parse: {
+        //   //   bare_returns: true, // Return ifadelerinin etrafına süslü parantez eklemeden bırakır
+        //   //   ecma: 2020, // ECMAScript sürümü
+        //   //   html5_comments: false,
+        //   //   shebang: true,
+        //   // },
+        //   // compress: {
+        //   //   dead_code: true,
+        //   //   drop_debugger: true,
+        //   //   module: true,
+        //   // },
+        //   // format: {
+        //   //   comments: false, // Yorum satırlarını da silsin
+        //   // },
+      });
+      if (minifiedResult && minifiedResult.code) {
+        finalCode = minifiedResult.code;
+      }
+    } catch (error) {
+      console.log(error);
+      setAlertMsg("Hatalı kod formatı.");
+      setTimeout(() => {
+        setAlertMsg("");
+      }, 3000);
+      toggle.current?.click();
+      return;
     }
+
     const ownerPublicKey = keyPair.publicKey;
     const targetNamespace =
       await IdentityKey.calculateNamespace(ownerPublicKey);
@@ -119,7 +163,7 @@ export default function NewFuncModal({}: Readonly<{}>) {
           ownerSignature: bufferToBase64(ownerSigBuf),
         },
         functionIdentity: functionIdentityExport,
-        ownerPublicKey
+        ownerPublicKey,
       };
     }
 
@@ -188,9 +232,15 @@ export default function NewFuncModal({}: Readonly<{}>) {
         setKvEnabled(false);
         setKvPatterns("");
         setKvHours("24");
+      } else {
+        throw  {message: data.message};
       }
     } catch (error) {
-      console.error(error);
+      toggle.current.click();
+      setAlertMsg(error?.message);
+      setTimeout(() => {
+        setAlertMsg("");
+      }, 3000);
     }
   }
 
