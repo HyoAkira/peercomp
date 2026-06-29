@@ -16,6 +16,11 @@ export function bufferToBase64(buf: ArrayBuffer): string {
 }
 
 export function base64ToBuffer(b64: string): ArrayBuffer {
+  //   console.log({
+  //   b64,
+  //   length:b64?.length,
+  //   chars:[...b64].filter(c=>!"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=".includes(c))
+  // });
   const bin = atob(b64);
   const buf = new Uint8Array(bin.length);
   for (let i = 0; i < bin.length; i++) buf[i] = bin.charCodeAt(i);

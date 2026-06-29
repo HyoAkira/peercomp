@@ -15,11 +15,15 @@ export class KvSdk {
       this.sys.on("message", callback);
       // Node.js'de off veya removeListener kullanılır
       return () => {
-        if (typeof this.sys.off === "function") this.sys.off("message", callback);
-        else if (typeof this.sys.removeListener === "function") this.sys.removeListener("message", callback);
+        if (typeof this.sys.off === "function")
+          this.sys.off("message", callback);
+        else if (typeof this.sys.removeListener === "function")
+          this.sys.removeListener("message", callback);
       };
     } else {
-      throw new Error("Sistem nesnesi (sys) desteklenen bir mesaj dinleyiciye sahip değil.");
+      throw new Error(
+        "Sistem nesnesi (sys) desteklenen bir mesaj dinleyiciye sahip değil.",
+      );
     }
   }
 
@@ -27,9 +31,11 @@ export class KvSdk {
     if (typeof this.sys.postMessage === "function") {
       this.sys.postMessage(payload);
     } else if (typeof this.sys.send === "function") {
-      this.sys.send(payload); 
+      this.sys.send(payload);
     } else {
-      throw new Error("Sistem nesnesi (sys) mesaj gönderme metoduna sahip değil.");
+      throw new Error(
+        "Sistem nesnesi (sys) mesaj gönderme metoduna sahip değil.",
+      );
     }
   }
 
@@ -40,24 +46,35 @@ export class KvSdk {
 
   async get(key) {
     // 1. HATA ÇÖZÜMÜ: calculateAddress asenkron, await edilmeli!
-    const actualKey = await this.calculateAddress(key, this.kvPermission.ownerPublicKey);
-    
+    const actualKey = await this.calculateAddress(
+      key,
+      this.kvPermission.ownerPublicKey,
+    );
+
     // 3. HATA ÇÖZÜMÜ: Her istek için benzersiz bir ID (Race condition'ı engellemek için)
-    const reqId = crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substring(2);
+    const reqId = crypto.randomUUID
+      ? crypto.randomUUID()
+      : Math.random().toString(36).substring(2);
 
     return new Promise((resolve, reject) => {
       let removeListener;
 
       const listener = (eventOrMessage) => {
         // 4. HATA ÇÖZÜMÜ: Hem Node.js hem Browser (DOM) mesaj payload'unu güvenli yakalama
-        const payload = eventOrMessage.data !== undefined ? eventOrMessage.data : eventOrMessage;
+        const payload =
+          eventOrMessage.data !== undefined
+            ? eventOrMessage.data
+            : eventOrMessage;
 
         // Yanıtın bu spesifik isteğe (reqId) ait olduğundan emin ol
-        if (payload && payload.type === "STORAGE_GET_RESPONSE" && payload.reqId === reqId) {
-          
+        if (
+          payload &&
+          payload.type === "STORAGE_GET_RESPONSE" &&
+          payload.reqId === reqId
+        ) {
           // 2. HATA ÇÖZÜMÜ: İşlem bittiğinde dinleyiciyi hafızadan temizle
           removeListener();
-          
+
           if (payload.error) {
             reject(new Error(payload.error));
           } else {
@@ -73,7 +90,7 @@ export class KvSdk {
         reqId: reqId, // Request ID'yi gönderiyoruz, alıcı servisin bunu geri dönmesi gerekir!
         data: {
           kvPermission: this.kvPermission,
-          key: actualKey, 
+          key: actualKey,
         },
       });
     });
@@ -81,8 +98,6 @@ export class KvSdk {
 }
 
 export async function runUserCodeInSES(sys, userCode, args, kvPermission) {
-  // Yukarıdaki işlevsiz dış 'handler' kodları kaldırıldı.
-    console.log("ABC bum");
   const secureFetch = harden(async (url, options) => {
     // isPrivateOrInvalidIP metodunun bir yerlerde tanımlı olduğunu varsayıyoruz
     const isPrivateOrInvalid = isPrivateOrInvalidIP(new URL(url).hostname);
@@ -105,7 +120,7 @@ export async function runUserCodeInSES(sys, userCode, args, kvPermission) {
   // istediğimiz metodları içeren güvenli bir arayüz hazırlıyoruz (Güvenlik için iyi bir pratiktir)
   const kvInstance = new KvSdk(sys, kvPermission);
   const safeKv = harden({
-    get: async (key) => await kvInstance.get(key)
+    get: async (key) => await kvInstance.get(key),
     // ileride set, delete gibi metodları da buraya ekleyebilirsin
   });
 
@@ -161,7 +176,6 @@ export async function runUserCodeInSES(sys, userCode, args, kvPermission) {
       data: finalResult,
     };
   } catch (error) {
-
     return {
       success: false,
       error: error.message,
