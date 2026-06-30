@@ -16,6 +16,12 @@ export function bufferToBase64(buf: ArrayBuffer): string {
 }
 
 export function base64ToBuffer(b64: string): ArrayBuffer {
+  // Fix 4: undefined/null geldiğinde atob("undefined") yerine açık hata fırlat
+  if (!b64 || typeof b64 !== "string") {
+    throw new TypeError(
+      `base64ToBuffer: geçersiz girdi — base64 string bekleniyor, alınan: ${b64 === null ? "null" : typeof b64}`,
+    );
+  }
   console.log(b64)
     console.log({
     b64,

@@ -46,6 +46,13 @@ export class KvSdk {
   }
 
   async get(key) {
+    // Fix 3: ownerPublicKey eksikse base64ToBuffer("undefined") hatasını engelle
+    if (!this.kvPermission?.ownerPublicKey) {
+      throw new Error(
+        "KV get failed: ownerPublicKey is missing from kvPermission. " +
+        "Lütfen fonksiyonu yeniden kaydedin.",
+      );
+    }
     // 1. HATA ÇÖZÜMÜ: calculateAddress asenkron, await edilmeli!
     const actualKey = await this.calculateAddress(
       key,

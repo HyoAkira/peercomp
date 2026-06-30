@@ -162,6 +162,7 @@ export default function EditModalComponent({
           ownerSignature: bufferToBase64(ownerSigBuf),
         },
         functionIdentity: functionIdentityExport,
+        ownerPublicKey: keyPair.publicKey, // Fix 1: required by KvSdk.get() → calculateNamespace()
       };
     } else if (kvPermission?.enabled) {
       // Daha önce açıktı, şimdi kapatılıyor
@@ -196,8 +197,22 @@ export default function EditModalComponent({
       if (data.error) throw new Error(data.error);
 
       if (node) {
+        // Fix 2: storeWithSignature payload must include type + metadata.namespace
+        // so that NodeMap.setAsync() and validateP2PWriteRequest() work correctly.
+        // data.data comes from Mongoose and may already have these fields, but we
+        // guarantee them by merging from the current store entry as fallback.
+        const existingFunc = useFunctions
+          .getState()
+          .functions.find((f) => f._id === functionId);
+        const enrichedPayload = {
+          ...data.data,
+          type: data.data.type ?? existingFunc?.type ?? "function",
+          metadata:
+            data.data.metadata ??
+            existingFunc?.metadata ?? { namespace: "" },
+        };
         const owner = await IdentityKey.import(keyPair);
-        const ownerPayload = JSON.stringify(data.data);
+        const ownerPayload = JSON.stringify(enrichedPayload);
         const ownerSigBuf = await owner.sign(ownerPayload);
         const ownerSignature = bufferToBase64(ownerSigBuf);
         const signedValueByOwner = {
@@ -205,7 +220,7 @@ export default function EditModalComponent({
           ownerSignature: ownerSignature,
         };
         await node.storeWithSignature(
-          data.data.endpoint,
+          enrichedPayload.endpoint,
           signedValueByOwner,
           keyPair.publicKey,
         );
