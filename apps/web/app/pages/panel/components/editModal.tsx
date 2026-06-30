@@ -4,7 +4,6 @@ import CodeEditor from "@uiw/react-textarea-code-editor"; // <-- Paket eklendi
 import { parse } from "acorn";
 import escodegen from "escodegen";
 import { useRef, useState } from "react";
-import { minify } from "terser";
 import {
   useAlertMsg,
   useFunctions,
@@ -14,16 +13,18 @@ import {
 } from "~/lib/store";
 type FunctionMethod = "GET" | "POST";
 
-type KvPermissionProp = {
-  enabled: boolean;
-  allowedKeys: string[];
-  expiresAt: number | string;
-} | null | undefined;
+type KvPermissionProp =
+  | {
+      enabled: boolean;
+      allowedKeys: string[];
+      expiresAt: number | string;
+    }
+  | null
+  | undefined;
 
 function computeRemainingHours(expiresAt: number | string | undefined): string {
   if (!expiresAt) return "24";
-  const ts =
-    typeof expiresAt === "string" ? Date.parse(expiresAt) : expiresAt;
+  const ts = typeof expiresAt === "string" ? Date.parse(expiresAt) : expiresAt;
   if (!ts || Number.isNaN(ts)) return "24";
   const diffMs = ts - Date.now();
   if (diffMs <= 0) return "1";
@@ -93,7 +94,7 @@ export default function EditModalComponent({
       const block = (ast.body[0] as any).body.body;
       const min = escodegen.generate(
         { type: "Program", body: block },
-        { format: { compact: true } },
+        { format: { compact: false } },
       );
       finalCode = min;
       // const minifiedResult = await minify(min, {
@@ -207,8 +208,7 @@ export default function EditModalComponent({
         const enrichedPayload = {
           ...data.data,
           type: data.data.type ?? existingFunc?.type ?? "function",
-          metadata:
-            data.data.metadata ??
+          metadata: data.data.metadata ??
             existingFunc?.metadata ?? { namespace: "" },
         };
         const owner = await IdentityKey.import(keyPair);
@@ -226,7 +226,11 @@ export default function EditModalComponent({
         );
       }
       setFunctions(
-        useFunctions.getState().functions.map((func) => (func._id === functionId ? data.data : func)),
+        useFunctions
+          .getState()
+          .functions.map((func) =>
+            func._id === functionId ? data.data : func,
+          ),
       );
 
       toggle.current?.click();
@@ -328,7 +332,8 @@ export default function EditModalComponent({
                   <div className="alert alert-info py-2 px-3 text-xs">
                     <span>
                       🔒 Güvenlik: Yazma süresi sınırı dolduğunda fonksiyon KV
-                      yazma yetkisini kaybedecektir. Yeni bir süre ile yenilenebilir.
+                      yazma yetkisini kaybedecektir. Yeni bir süre ile
+                      yenilenebilir.
                     </span>
                   </div>
 

@@ -71,7 +71,7 @@ export default function NewFuncModal({}: Readonly<{}>) {
       };
       const min = escodegen.generate(newAst, {
         format: {
-          compact: true,
+          compact: false,
         },
       });
       finalCode = min;
