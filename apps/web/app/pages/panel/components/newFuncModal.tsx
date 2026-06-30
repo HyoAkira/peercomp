@@ -74,35 +74,35 @@ export default function NewFuncModal({}: Readonly<{}>) {
           compact: true,
         },
       });
-
-      const minifiedResult = await minify(min, {
-        compress: false,
-        mangle: false,
-        format: {
-          beautify: false,
-        },
-        parse: {
-          bare_returns: true,
-        },
-        //   // mangle: false,
-        //   // parse: {
-        //   //   bare_returns: true, // Return ifadelerinin etrafına süslü parantez eklemeden bırakır
-        //   //   ecma: 2020, // ECMAScript sürümü
-        //   //   html5_comments: false,
-        //   //   shebang: true,
-        //   // },
-        //   // compress: {
-        //   //   dead_code: true,
-        //   //   drop_debugger: true,
-        //   //   module: true,
-        //   // },
-        //   // format: {
-        //   //   comments: false, // Yorum satırlarını da silsin
-        //   // },
-      });
-      if (minifiedResult && minifiedResult.code) {
-        finalCode = minifiedResult.code;
-      }
+      finalCode = min;
+      // const minifiedResult = await minify(min, {
+      //   compress: false,
+      //   mangle: false,
+      //   format: {
+      //     beautify: false,
+      //   },
+      //   parse: {
+      //     bare_returns: true,
+      //   },
+      //   //   // mangle: false,
+      //   //   // parse: {
+      //   //   //   bare_returns: true, // Return ifadelerinin etrafına süslü parantez eklemeden bırakır
+      //   //   //   ecma: 2020, // ECMAScript sürümü
+      //   //   //   html5_comments: false,
+      //   //   //   shebang: true,
+      //   //   // },
+      //   //   // compress: {
+      //   //   //   dead_code: true,
+      //   //   //   drop_debugger: true,
+      //   //   //   module: true,
+      //   //   // },
+      //   //   // format: {
+      //   //   //   comments: false, // Yorum satırlarını da silsin
+      //   //   // },
+      // });
+      // if (minifiedResult && minifiedResult.code) {
+      //   finalCode = minifiedResult.code;
+      // }
     } catch (error) {
       console.log(error);
       setAlertMsg("Hatalı kod formatı.");

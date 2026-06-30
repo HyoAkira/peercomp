@@ -95,15 +95,16 @@ export default function EditModalComponent({
         { type: "Program", body: block },
         { format: { compact: true } },
       );
-      const minifiedResult = await minify(min, {
-        compress: false,
-        mangle: false,
-        format: { beautify: false },
-        parse: { bare_returns: true },
-      });
-      if (minifiedResult?.code) {
-        finalCode = minifiedResult.code;
-      }
+      finalCode = min;
+      // const minifiedResult = await minify(min, {
+      //   compress: false,
+      //   mangle: false,
+      //   format: { beautify: false },
+      //   parse: { bare_returns: true },
+      // });
+      // if (minifiedResult?.code) {
+      //   finalCode = minifiedResult.code;
+      // }
     } catch (error) {
       console.log(error);
       setAlertMsg("Hatalı kod formatı.");
