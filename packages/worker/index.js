@@ -66,7 +66,6 @@ export class KvSdk {
       let removeListener;
 
       const listener = (eventOrMessage) => {
-        // 4. HATA ÇÖZÜMÜ: Hem Node.js hem Browser (DOM) mesaj payload'unu güvenli yakalama
         const payload =
           eventOrMessage.data !== undefined
             ? eventOrMessage.data
@@ -78,7 +77,6 @@ export class KvSdk {
           payload.type === "STORAGE_GET_RESPONSE" &&
           payload.reqId === reqId
         ) {
-          // 2. HATA ÇÖZÜMÜ: İşlem bittiğinde dinleyiciyi hafızadan temizle
           removeListener();
 
           if (payload.error) {
